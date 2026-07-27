@@ -352,37 +352,18 @@ class DashboardApp(App):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield TabbedContent(
-            TabPane("Resumen", id="tab-resumen"),
-            TabPane("Tweets", id="tab-tweets"),
-            TabPane("Prompts", id="tab-prompts"),
-            TabPane("Estilos", id="tab-estilos"),
-            TabPane("Historial", id="tab-historial"),
-            initial="tab-tweets",
-        )
+        with TabbedContent(initial="tab-tweets"):
+            with TabPane("Resumen", id="tab-resumen"):
+                yield ResumenPanel()
+            with TabPane("Tweets", id="tab-tweets"):
+                yield TweetsPanel()
+            with TabPane("Prompts", id="tab-prompts"):
+                yield PromptsPanel()
+            with TabPane("Estilos", id="tab-estilos"):
+                yield EstilosPanel()
+            with TabPane("Historial", id="tab-historial"):
+                yield HistorialPanel()
         yield Footer()
-
-    def on_mount(self) -> None:
-        init_db()
-
-        # Agregar paneles
-        try:
-            resumen_pane = self.query_one("#tab-resumen")
-            resumen_pane.compose_add_child(ResumenPanel())
-
-            tweets_pane = self.query_one("#tab-tweets")
-            tweets_pane.compose_add_child(TweetsPanel())
-
-            prompts_pane = self.query_one("#tab-prompts")
-            prompts_pane.compose_add_child(PromptsPanel())
-
-            estilos_pane = self.query_one("#tab-estilos")
-            estilos_pane.compose_add_child(EstilosPanel())
-
-            historial_pane = self.query_one("#tab-historial")
-            historial_pane.compose_add_child(HistorialPanel())
-        except NoMatches:
-            pass
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         """Maneja la selección de una fila en la tabla de tweets."""
