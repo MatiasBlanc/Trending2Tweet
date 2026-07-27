@@ -16,7 +16,7 @@ import config
 from sources.github_client import get_readme_content, GITHUB_API
 from llm_client import generate_tweet
 from twitter_client import publicar_tweet
-from state_manager import load_processed, save_processed
+from metrics_db import load_processed, is_processed, mark_as_processed
 
 PROMPT_FILE = "prompts/prompt_github.txt"
 
@@ -146,8 +146,7 @@ def main() -> None:
     print(f"  📝 {repo['description'][:80]}...")
 
     # 2. Verificar si ya fue publicado
-    processed = load_processed()
-    if repo["id"] in processed:
+    if is_processed(repo["id"]):
         print(f"\n  ⚠️  Este repo ya fue publicado anteriormente (ID: {repo['id']})")
         respuesta = input("  ¿Continuar de todos modos? (s/n): ").strip().lower()
         if respuesta not in ("s", "si", "sí"):
@@ -222,9 +221,7 @@ def main() -> None:
     except Exception as e:
         print(f"  📎 URL para comentario (copia manual): {repo['html_url']} [{e}]")
 
-    # 9. Actualizar state
-    processed.add(repo["id"])
-    save_processed(processed)
+    # 9. Estado ya se actualiza automáticamente en twitter_client
 
     print(f"\n{'━' * 50}")
     print(f"  ✅ Completado")

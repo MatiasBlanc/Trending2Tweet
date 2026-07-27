@@ -1,34 +1,50 @@
 """Cliente para generar tweets con un LLM compatible con OpenAI."""
 
+from pathlib import Path
 from openai import OpenAI
 
 import config
 
-def _build_system_prompt() -> str:
-    """Construye el system prompt según la configuración de longitud."""
-    if config.FORCE_280_CHAR_TWEET:
-        limite = "El texto debe ser conciso, fluido y no superar los 250 caracteres (excluyendo la URL)."
-    else:
-        limite = "Puedes extender el tweet con más detalle técnico, sin límite estricto de caracteres. pero con máximo 2 líneas de texto (sin contar la URL). Ve al grano de inmediato. Si te extiendes más, el post se rechaza."
 
-    return f"""Actúa como un Ingeniero de Software Senior y curador de contenido técnico en X.
-Tu única tarea es recibir datos de un repositorio de GitHub (nombre, descripción, lenguaje, estrellas, URL) y transformarlos en un tweet de altísimo impacto.
-
-REGLAS ESTRICTAS DE FORMATO Y TONO:
-1. Cero "Fluff" de IA y Cero Marketing: Prohibido usar introducciones genéricas ("Descubre...", "En el mundo del desarrollo...", "Atención desarrolladores"). PROHIBIDO usar palabras cliché como "solución", "valioso", "esencial", "recurso" o "facilita".
-2. El Gancho (Hook): La primera línea debe atrapar al lector yendo directo a un problema ("dolor" técnico) que el repositorio resuelve, o a su principal caso de uso.
-3. Valor Técnico: Explica en una frase asertiva y técnica cómo funciona el código por debajo (arquitectura, lenguaje o implementación), prohibido sonar como un anuncio publicitario.
-4. Estética Minimalista: Prohibido el uso de emojis. Prohibido el uso de hashtags. Separa los bloques de texto con un salto de línea para facilitar la lectura.
-5. Longitud: {limite}
-6. Cierre: El tweet siempre debe terminar con la URL del repositorio.
-7. Formato de Salida: Devuelve ÚNICAMENTE el texto final del tweet en español, listo para publicarse. No uses comillas, ni confirmes la orden, ni agregues explicaciones. CERO MARKDOWN (CRÍTICO) Genera texto plano puro. La plataforma de destino no soporta Markdown. Está estrictamente prohibido usar asteriscos (**) para negritas, guiones bajos (_) para cursivas o sintaxis de enlaces como [texto](url).
-"""
-
-def generate_tweet(repo: dict) -> str:
-    """Genera un tweet descriptivo sobre el repositorio.
+def _leer_prompt(nombre_archivo: str, limite_texto: str, variables: dict = None) -> str:
+    """Lee un archivo de prompt y reemplaza las variables.
 
     Args:
-        repo: Diccionario con name, description, language, stars, html_url.
+        nombre_archivo: Ruta al archivo de prompt.
+        limite_texto: Texto descriptivo del límite de caracteres.
+        variables: Diccionario con variables adicionales a reemplazar.
+
+    Returns:
+        Prompt del sistema con las variables reemplazadas.
+    """
+    plantilla = Path(nombre_archivo).read_text(encoding="utf-8")
+    resultado = plantilla.replace("{limite}", limite_texto)
+    
+    if variables:
+        for clave, valor in variables.items():
+            resultado = resultado.replace(f"{{{clave}}}", valor)
+    
+    return resultado
+
+
+def _obtener_limite_texto() -> str:
+    """Genera el texto descriptivo según la configuración de límite.
+
+    Returns:
+        Texto con las instrucciones de límite.
+    """
+    if config.FORCE_280_CHAR_TWEET:
+        return "El texto debe ser hiper-conciso y no superar los 280 caracteres. Optimiza cada palabra."
+    return "Prioriza la escaneabilidad visual. Usa saltos de línea claros, pero mantén la información comprimida y al grano."
+
+
+def generate_tweet(prompt_file: str, user_message: str, variables: dict = None) -> str:
+    """Genera un tweet usando el LLM configurado.
+
+    Args:
+        prompt_file: Ruta al archivo de prompt del sistema.
+        user_message: Mensaje del usuario con los datos del item.
+        variables: Diccionario con variables adicionales para el prompt.
 
     Returns:
         Texto del tweet generado.
@@ -41,31 +57,16 @@ def generate_tweet(repo: dict) -> str:
         base_url=config.LLM_BASE_URL,
     )
 
-    user_msg = (
-        f"Repo: {repo['name']}\n"
-        f"Descripción: {repo['description']}\n"
-        f"Lenguaje: {repo['language']}\n"
-        f"Stars: {repo['stars']}\n"
-        f"URL: {repo['html_url']}"
-    )
-
-    # Incluir contenido del README si está disponible
-    readme_content = repo.get("readme_content")
-    if readme_content:
-        user_msg += f"\n\n--- README del repositorio ---\n{readme_content}\n--- Fin del README ---"
-
-
-    system_prompt = _build_system_prompt()
+    system_prompt = _leer_prompt(prompt_file, _obtener_limite_texto(), variables)
 
     completion = client.chat.completions.create(
         model=config.LLM_MODEL,
         messages=[
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_msg},
+            {"role": "user", "content": user_message},
         ],
         max_tokens=config.LLM_MAX_TOKENS,
         temperature=config.LLM_TEMPERATURE,
     )
 
-    respuesta_cruda = completion.choices[0].message.content
-    return respuesta_cruda.strip()
+    return completion.choices[0].message.content.strip()

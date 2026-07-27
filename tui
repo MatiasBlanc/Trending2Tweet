@@ -1,0 +1,3 @@
+#!/bin/bash
+# Alias para ejecutar el dashboard TUI
+cd "$(dirname "$0")" && python3 tui.py "$@"

@@ -12,7 +12,7 @@ import config
 from sources.github_client import get_trending_repos, get_readme_content
 from llm_client import generate_tweet
 from twitter_client import publicar_tweet
-from state_manager import load_processed, save_processed
+from metrics_db import load_processed, is_processed
 
 PROMPT_FILE = "prompts/prompt_github.txt"
 
@@ -80,6 +80,7 @@ def main() -> None:
     # 1. Cargar estado previo
     processed = load_processed()
     print(f"  Items en historial: {len(processed)}")
+    print(f"  Source: metrics.db")
 
     # 2. Buscar repos trending
     try:
@@ -97,7 +98,7 @@ def main() -> None:
     # 3. Buscar el primer repo nuevo y publicarlo
     for repo in repos:
         # Verificar si ya fue publicado
-        if repo["id"] in processed:
+        if is_processed(repo["id"]):
             print(f"\n  ⏭  Ya publicado: {repo['name']}")
             continue
 
@@ -139,9 +140,9 @@ def main() -> None:
         print(f"  💾 Guardado: {filename}")
         print(f"  📎 URL para comentario: {repo['html_url']}")
 
-        # Persistir estado
-        processed.add(repo["id"])
-        save_processed(processed)
+        # Persistir estado (ya se hace automáticamente en twitter_client)
+        # processed.add(repo["id"])
+        # save_processed(processed)
 
         print(f"\n{'━' * 50}")
         print(f"  ✅ Completado: 1 tweet publicado")

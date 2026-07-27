@@ -8,7 +8,6 @@ Bot automatizado que genera y publica tweets sobre repos trending de GitHub y no
 trending2tweet/
 ├── .env                        # Variables de entorno
 ├── config.py                   # Configuración centralizada
-├── state_manager.py            # Memoria unificada (IDs procesados)
 ├── llm_client.py               # Motor de redacción con LLM
 ├── twitter_client.py           # Publicación en X/Twitter
 ├── sources/
@@ -20,10 +19,15 @@ trending2tweet/
 ├── main_github.py              # Bot de GitHub (ejecutar al mediodía)
 ├── main_news.py                # Bot de noticias (ejecutar por la mañana)
 ├── main_github_manual.py       # Bot manual para un repo específico
-├── metrics_db.py               # Base de datos SQLite para métricas
+├── metrics_db.py               # Base de datos SQLite (reemplaza state.json)
 ├── metrics_collector.py        # Recolector automático de métricas
-└── dashboard.py                # Dashboard TUI para analytics
+├── migrate_state.py            # Migración de state.json → metrics.db
+├── dashboard.py                # Dashboard estático (rich)
+├── tui.py                      # Dashboard interactivo (textual)
+└── tui                         # Alias para ejecutar ./tui
 ```
+
+> **Nota:** `state_manager.py` y `state.json` son obsoletos. Todo se gestiona desde `metrics.db`.
 
 ## Bots
 
@@ -62,11 +66,12 @@ python main_github_manual.py facebook/react
 Visualiza el rendimiento de todos los tweets publicados:
 
 ```bash
+# Dashboard interactivo (RECOMENDADO)
+./tui
+python tui.py
+
 # Dashboard estático (rich)
 python dashboard.py
-
-# Dashboard interactivo (textual) - RECOMENDADO
-python tui.py
 
 # Historial de un tweet específico
 python dashboard.py --historial 1234567890
@@ -76,7 +81,8 @@ python dashboard.py --historial 1234567890
 
 Atajos de teclado:
 - `1/2/3`: Ordenar por fecha/likes/score
-- `f`: Filtrar por fuente (github/news/manual/todas)\- `r`: Refrescar datos
+- `f`: Filtrar por fuente (github/news/manual/todas)
+- `r`: Refrescar datos
 - `Enter`: Ver detalle de un tweet seleccionado
 - `Escape/q`: Volver/Salir
 
@@ -86,6 +92,16 @@ El dashboard muestra:
 - **Rendimiento por prompt**: qué prompt genera mejor engagement
 - **Rendimiento por estilo**: qué estilo de gancho funciona mejor (noticias)
 - **Historial**: evolución temporal de métricas por tweet
+
+### Migración de state.json
+
+Si tenías un `state.json` anterior, ejecuta la migración una sola vez:
+
+```bash
+python migrate_state.py
+```
+
+Esto moverá todos los IDs a `metrics.db` y creará un backup de `state.json`.
 
 ### Recolector de Métricas
 

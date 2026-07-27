@@ -400,3 +400,142 @@ def obtener_tweets_para_few_shot(cantidad: int = 5) -> list[dict]:
     conn.close()
 
     return [dict(row) for row in rows]
+
+
+# ── Funciones de reemplazo para state_manager ──────────────────
+
+
+def load_processed() -> set[str]:
+    """Carga los IDs de items ya procesados.
+
+    Reemplaza a state_manager.load_processed().
+    Consulta metrics.db en lugar de state.json.
+
+    Returns:
+        Conjunto de IDs procesados (ej: {"gh_12345", "nw_67890"}).
+    """
+    init_db()
+    conn = _get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT item_id FROM tweets WHERE item_id IS NOT NULL")
+    rows = cursor.fetchall()
+    conn.close()
+
+    return {row["item_id"] for row in rows}
+
+
+def save_processed(processed: set[str]) -> None:
+    """Guarda el conjunto de IDs procesados.
+
+    Nota: En el nuevo sistema, esto se hace automáticamente al registrar tweets.
+    Esta función existe por compatibilidad pero no hace nada.
+    """
+    # No hacer nada, la persistencia se maneja en registrar_tweet()
+    pass
+
+
+def is_processed(item_id: str) -> bool:
+    """Verifica si un item ya fue procesado.
+
+    Args:
+        item_id: ID del item (ej: "gh_12345").
+
+    Returns:
+        True si el item ya fue procesado.
+    """
+    init_db()
+    conn = _get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT 1 FROM tweets WHERE item_id = ? LIMIT 1",
+        (item_id,),
+    )
+    result = cursor.fetchone()
+    conn.close()
+
+    return result is not None
+
+
+def mark_as_processed(item_id: str, source: str, tweet_id: str = None, texto: str = None) -> None:
+    """Marca un item como procesado.
+
+    Args:
+        item_id: ID del item (ej: "gh_12345").
+        source: Fuente (github, news, etc).
+        tweet_id: ID del tweet en Twitter (si está disponible).
+        texto: Texto del tweet (si está disponible).
+    """
+    init_db()
+    conn = _get_connection()
+    cursor = conn.cursor()
+
+    # Usar tweet_id real si está disponible, sino usar item_id como temporal
+    real_tweet_id = tweet_id or f"pending_{item_id}"
+    real_texto = texto or "[Tweet pendiente de publicar]"
+
+    cursor.execute(
+        """
+        INSERT OR REPLACE INTO tweets
+            (tweet_id, texto, source, item_id, published_at)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            real_tweet_id,
+            real_texto,
+            source,
+            item_id,
+            datetime.now().isoformat(),
+        ),
+    )
+
+    conn.commit()
+    conn.close()
+
+
+def remove_from_history(item_id: str) -> bool:
+    """Elimina un item del historial.
+
+    Args:
+        item_id: ID del item a eliminar.
+
+    Returns:
+        True si se eliminó correctamente.
+    """
+    init_db()
+    conn = _get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "DELETE FROM tweets WHERE item_id = ?",
+        (item_id,),
+    )
+    eliminado = cursor.rowcount > 0
+
+    conn.commit()
+    conn.close()
+
+    return eliminado
+
+
+def clear_history() -> int:
+    """Limpia todo el historial.
+
+    Returns:
+        Cantidad de items eliminados.
+    """
+    init_db()
+    conn = _get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT COUNT(*) FROM tweets")
+    count = cursor.fetchone()[0]
+
+    cursor.execute("DELETE FROM tweets")
+    cursor.execute("DELETE FROM metrics_history")
+
+    conn.commit()
+    conn.close()
+
+    return count

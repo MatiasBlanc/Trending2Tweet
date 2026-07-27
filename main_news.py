@@ -13,7 +13,7 @@ import config
 from sources.hacker_news_client import get_top_stories, get_best_stories
 from llm_client import generate_tweet
 from twitter_client import publicar_tweet
-from state_manager import load_processed, save_processed
+from metrics_db import load_processed, is_processed
 
 PROMPT_FILE = "prompts/prompt_news.txt"
 
@@ -84,6 +84,7 @@ def main() -> None:
     # 1. Cargar estado previo
     processed = load_processed()
     print(f"  Items en historial: {len(processed)}")
+    print(f"  Source: metrics.db")
 
     # 2. Obtener noticias según fuente configurada
     try:
@@ -104,7 +105,7 @@ def main() -> None:
     # 3. Buscar la primera noticia nueva y publicarla
     for story in stories:
         # Verificar si ya fue publicado
-        if story["id"] in processed:
+        if is_processed(story["id"]):
             print(f"\n  ⏭  Ya publicada: {story['title'][:60]}...")
             continue
 
@@ -149,9 +150,9 @@ def main() -> None:
         print(f"  💾 Guardado: {filename}")
         print(f"  📎 URL para comentario: {story['url']}")
 
-        # Persistir estado
-        processed.add(story["id"])
-        save_processed(processed)
+        # Persistir estado (ya se hace automáticamente en twitter_client)
+        # processed.add(story["id"])
+        # save_processed(processed)
 
         print(f"\n{'━' * 50}")
         print(f"  ✅ Completado: 1 tweet publicado")
