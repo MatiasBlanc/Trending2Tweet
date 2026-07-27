@@ -62,19 +62,30 @@ python main_github_manual.py facebook/react
 Visualiza el rendimiento de todos los tweets publicados:
 
 ```bash
-# Dashboard completo
+# Dashboard estático (rich)
 python dashboard.py
+
+# Dashboard interactivo (textual) - RECOMENDADO
+python tui.py
 
 # Historial de un tweet específico
 python dashboard.py --historial 1234567890
 ```
 
+#### TUI Interactiva (`tui.py`)
+
+Atajos de teclado:
+- `1/2/3`: Ordenar por fecha/likes/score
+- `f`: Filtrar por fuente (github/news/manual/todas)\- `r`: Refrescar datos
+- `Enter`: Ver detalle de un tweet seleccionado
+- `Escape/q`: Volver/Salir
+
 El dashboard muestra:
 - **Resumen general**: total tweets, likes, RTs, replies, impresiones
-- **Rendimiento por fuente**: GitHub vs Noticias vs Manual
+- **Tweets**: tabla navegable con todas las métricas
 - **Rendimiento por prompt**: qué prompt genera mejor engagement
 - **Rendimiento por estilo**: qué estilo de gancho funciona mejor (noticias)
-- **Top tweets**: los tweets con mayor engagement score
+- **Historial**: evolución temporal de métricas por tweet
 
 ### Recolector de Métricas
 
