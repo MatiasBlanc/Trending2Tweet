@@ -1,13 +1,16 @@
-"""Scheduler automático para recolección de métricas.
+"""Scheduler automático para publicación y recolección de métricas.
 
-Se ejecuta como worker y colecta métricas periódicamente.
+Se ejecuta como worker, publica tweets en horarios configurados
+y colecta métricas periódicamente.
 Diseñado para correr en Heroku, Railway, o cualquier plataforma con workers.
 """
 
 import time
 import signal
 import sys
+import subprocess
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from metrics_db import (
     init_db,
@@ -18,6 +21,17 @@ from metrics_db import (
 )
 from metrics_collector import crear_cliente, obtener_metricas_tweet
 
+# Ruta base del proyecto
+BASE_DIR = Path(__file__).parent
+
+# Horarios de publicación (hora del servidor UTC, formato 24h)
+HORARIOS_PUBLICACION = [
+    {"hora": 9, "minuto": 0, "script": "main_news.py", "label": "📰 News"},
+    {"hora": 12, "minuto": 0, "script": "main_github.py", "label": "🐙 GitHub"},
+]
+
+# Registro de publicaciones del día (para no duplicar)
+_publicaciones_hoy: dict[str, bool] = {}
 
 # Intervalos de colecta (en minutos después de publicación)
 VENTANAS_COLECTA = [
@@ -172,6 +186,84 @@ def ejecutar_colecta() -> dict:
     return {"colectados": colectados, "errores": errores, "pendientes": len(tweets_pendientes)}
 
 
+def ejecutar_publicacion(script: str, label: str) -> bool:
+    """Ejecuta un script de publicación.
+
+    Args:
+        script: Nombre del script a ejecutar (ej: main_news.py).
+        label: Etiqueta descriptiva para los logs.
+
+    Returns:
+        True si la publicación fue exitosa, False en caso contrario.
+    """
+    script_path = BASE_DIR / script
+
+    if not script_path.exists():
+        print(f"  ❌ Script no encontrado: {script_path}")
+        return False
+
+    print(f"\n{'━' * 50}")
+    print(f"  {label} - Publicando...")
+    print(f"  ⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"{'━' * 50}")
+
+    try:
+        resultado = subprocess.run(
+            [sys.executable, str(script_path)],
+            capture_output=True,
+            text=True,
+            timeout=300,  # 5 minutos máximo
+            cwd=str(BASE_DIR),
+        )
+
+        if resultado.stdout:
+            print(resultado.stdout)
+        if resultado.stderr:
+            print(f"  ⚠️ Stderr: {resultado.stderr}")
+
+        if resultado.returncode == 0:
+            print(f"  ✅ {label} completado")
+            return True
+        else:
+            print(f"  ❌ {label} falló (código {resultado.returncode})")
+            return False
+
+    except subprocess.TimeoutExpired:
+        print(f"  ❌ {label} timeout después de 5 minutos")
+        return False
+    except Exception as e:
+        print(f"  ❌ Error ejecutando {label}: {e}")
+        return False
+
+
+def verificar_y_publicar() -> None:
+    """Verifica si es hora de publicar y ejecuta los scripts correspondientes."""
+    global _publicaciones_hoy
+
+    ahora = datetime.now()
+    fecha_hoy = ahora.strftime("%Y-%m-%d")
+
+    # Resetear registro si cambió el día
+    if _publicaciones_hoy.get("fecha") != fecha_hoy:
+        _publicaciones_hoy = {"fecha": fecha_hoy}
+
+    for horario in HORARIOS_PUBLICACION:
+        clave = f"{fecha_hoy}_{horario['script']}"
+
+        # Ya se publicó hoy
+        if _publicaciones_hoy.get(clave):
+            continue
+
+        # Verificar si es la hora (ventana de 1 minuto)
+        if ahora.hour == horario["hora"] and ahora.minute == horario["minuto"]:
+            print(f"\n🕐 ¡Es hora de {horario['label']}!")
+            exito = ejecutar_publicacion(horario["script"], horario["label"])
+            _publicaciones_hoy[clave] = True
+
+            if exito:
+                print(f"  📝 Registrado como publicado hoy")
+
+
 def main() -> None:
     """Ejecuta el scheduler en loop continuo."""
     global running
@@ -180,30 +272,42 @@ def main() -> None:
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
+    # Mostrar horarios configurados
+    horarios_str = ", ".join(
+        f"{h['label']} a las {h['hora']:02d}:{h['minuto']:02d}"
+        for h in HORARIOS_PUBLICACION
+    )
+
     print("━" * 50)
-    print("  🔄 Metrics Scheduler iniciado")
-    print(f"  ⏰ Revisando cada {CHECK_INTERVAL // 60} minutos")
+    print("  🔄 Scheduler iniciado")
+    print(f"  📰 Publicación: {horarios_str}")
+    print(f"  📊 Métricas: cada {CHECK_INTERVAL // 60} minutos")
     print(f"  📊 Ventanas: {', '.join(v['label'] for v in VENTANAS_COLECTA)}")
     print("━" * 50)
 
     init_db()
 
+    # Contador para alternar entre chequear publicación y métricas
+    ciclo = 0
+
     while running:
         try:
-            resultado = ejecutar_colecta()
+            # Cada minuto verificar si es hora de publicar
+            verificar_y_publicar()
 
-            if resultado["pendientes"] == 0:
-                print(f"  💤 Sin tweets pendientes. "
-                      f"Próxima revisión en {CHECK_INTERVAL // 60} min...")
+            # Cada 5 minutos colectar métricas
+            if ciclo % (CHECK_INTERVAL // 60) == 0:
+                resultado = ejecutar_colecta()
+
+                if resultado["pendientes"] == 0:
+                    print(f"  💤 Sin tweets pendientes de métricas.")
 
         except Exception as e:
             print(f"  ❌ Error en scheduler: {e}")
 
-        # Esperar hasta la próxima revisión
-        for _ in range(CHECK_INTERVAL):
-            if not running:
-                break
-            time.sleep(1)
+        # Esperar 1 minuto
+        time.sleep(60)
+        ciclo += 1
 
     print("  👋 Scheduler detenido.")
 

@@ -9,6 +9,9 @@ import config
 
 DB_PATH = Path(config.METRICS_DB_PATH)
 
+# Crear directorio padre si no existe (para Railway Volumes)
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
 
 def _get_connection() -> sqlite3.Connection:
     """Obtiene una conexión a la base de datos.
