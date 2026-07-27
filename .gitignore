@@ -7,6 +7,9 @@ tweets/
 # State
 state.json
 
+# Metrics database
+metrics.db
+
 # Python
 __pycache__/
 *.py[cod]

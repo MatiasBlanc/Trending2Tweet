@@ -1,158 +1,209 @@
 # Trending2Tweet
 
-Bot que descubre repositorios trending en GitHub y genera tweets técnicos con IA para publicar manualmente en X (Twitter).
+Bot automatizado que genera y publica tweets sobre repos trending de GitHub y noticias de tecnología.
 
-## Requisitos
+## Estructura
 
-- Python 3.10+
-- Cuentas con acceso a la API de GitHub y a un proveedor LLM compatible con OpenAI
+```
+trending2tweet/
+├── .env                        # Variables de entorno
+├── config.py                   # Configuración centralizada
+├── state_manager.py            # Memoria unificada (IDs procesados)
+├── llm_client.py               # Motor de redacción con LLM
+├── twitter_client.py           # Publicación en X/Twitter
+├── sources/
+│   ├── github_client.py        # Cliente API GitHub
+│   └── hacker_news_client.py   # Cliente API Hacker News
+├── prompts/
+│   ├── prompt_github.txt       # Reglas de formato para repos
+│   └── prompt_news.txt         # Reglas de formato para noticias
+├── main_github.py              # Bot de GitHub (ejecutar al mediodía)
+├── main_news.py                # Bot de noticias (ejecutar por la mañana)
+├── main_github_manual.py       # Bot manual para un repo específico
+├── metrics_db.py               # Base de datos SQLite para métricas
+├── metrics_collector.py        # Recolector automático de métricas
+└── dashboard.py                # Dashboard TUI para analytics
+```
 
-## Dependencias
+## Bots
+
+### GitHub Trending Bot (`main_github.py`)
+
+Busca los repos más populares del último mes en GitHub, genera tweets **sin URLs** y los publica automáticamente.
+
+**IDs guardados como:** `gh_00000`
 
 ```bash
-pip install requests openai python-dotenv
+python main_github.py
 ```
 
-## Configuración
+### Tech News Bot (`main_news.py`)
 
-Crear un archivo `.env` en la raíz del proyecto con las siguientes variables:
+Obtiene las noticias principales de Hacker News, genera tweets **sin URLs** y los publica automáticamente.
 
-```dotenv
-# GitHub API (https://github.com/settings/tokens)
-GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+**IDs guardados como:** `nw_00000`
 
-# LLM API
-LLM_API_KEY=tu_api_key
-LLM_BASE_URL=https://token-plan-sgp.xiaomimimo.com/v1
-LLM_MODEL=mimo-v2.5-pro
-
-# Parámetros del LLM (opcionales)
-LLM_MAX_TOKENS=1024      # Máximo de tokens en la respuesta
-LLM_TEMPERATURE=0.2      # Creatividad: 0.0=determinista, 1.0=creativo
-
-# Ruta al archivo de estado (opcional, por defecto state.json)
-STATE_FILE=state.json
-
-# Limitar tweets a 280 caracteres (opcional)
-# true  = modo estándar (280 chars máx)
-# false = tweets largos (requiere X Premium)
-FORCE_280_CHAR_TWEET=true
+```bash
+python main_news.py
 ```
 
-### Obtener credenciales
+### GitHub Manual Bot (`main_github_manual.py`)
 
-| Servicio   | Dónde obtenerlas                                                                             | Permisos necesarios     |
-| ---------- | -------------------------------------------------------------------------------------------- | ----------------------- |
-| **GitHub** | [Settings → Developer settings → Personal access tokens](https://github.com/settings/tokens) | `public_repo` (lectura) |
-| **LLM**    | Panel de tu proveedor (OpenAI, Groq, Xiaomi MiMo, etc.)                                     | Acceso a chat completions |
+Genera y publica un tweet para un repositorio específico. La URL se copia automáticamente al portapapeles.
 
-### Proveedores LLM
+```bash
+python main_github_manual.py facebook/react
+```
 
-El bot usa el SDK de OpenAI, compatible con cualquier proveedor que exponga la misma interfaz:
+## Sistema de Métricas y Analytics
 
-```dotenv
-# Xiaomi MiMo
-LLM_BASE_URL=https://token-plan-sgp.xiaomimimo.com/v1
-LLM_MODEL=mimo-v2.5-pro
+### Dashboard
 
-# Groq
-LLM_BASE_URL=https://api.groq.com/openai/v1
-LLM_MODEL=openai/gpt-oss-20b
+Visualiza el rendimiento de todos los tweets publicados:
 
-# OpenAI
+```bash
+# Dashboard completo
+python dashboard.py
+
+# Historial de un tweet específico
+python dashboard.py --historial 1234567890
+```
+
+El dashboard muestra:
+- **Resumen general**: total tweets, likes, RTs, replies, impresiones
+- **Rendimiento por fuente**: GitHub vs Noticias vs Manual
+- **Rendimiento por prompt**: qué prompt genera mejor engagement
+- **Rendimiento por estilo**: qué estilo de gancho funciona mejor (noticias)
+- **Top tweets**: los tweets con mayor engagement score
+
+### Recolector de Métricas
+
+Recolecta automáticamente las métricas de engagement de los tweets publicados:
+
+```bash
+# Ejecutar manualmente
+python metrics_collector.py
+
+# Configurar cron job automático (cada 2 horas)
+bash setup_metrics_cron.sh
+```
+
+### Engagement Score
+
+El score se calcula con pesos configurables:
+
+```
+score = (likes × 1.0) + (retweets × 2.0) + (replies × 3.0) + (bookmarks × 2.5)
+```
+
+Los pesos se pueden ajustar en `.env`:
+```env
+ENG_WEIGHT_LIKES=1.0
+ENG_WEIGHT_RTS=2.0
+ENG_WEIGHT_REPLIES=3.0
+ENG_WEIGHT_BOOKMARKS=2.5
+```
+
+### Ventanas de Colecta
+
+El sistema recolecta métricas en estas ventanas de tiempo:
+- **30 minutos**: métricas iniciales
+- **2 horas**: engagement temprano
+- **24 horas**: rendimiento del primer día
+- **7 días**: rendimiento a largo plazo
+
+### Base de Datos
+
+SQLite local (`metrics.db`) con dos tablas:
+- **tweets**: datos del tweet + métricas más recientes
+- **metrics_history**: snapshots de métricas en el tiempo
+
+## Flujo de URLs
+
+Los tweets se publican **sin URLs** (para ahorrar costos de la API de Twitter). Las URLs se guardan en archivos de texto para que las agregues como comentario:
+
+```
+tweets/tweet_owner_repo_20260727_120000.txt
+```
+
+Contenido del archivo:
+```
+─── TWEET ───
+[Texto del tweet sin URL]
+
+─── URL (agregar como comentario) ───
+https://github.com/owner/repo
+```
+
+## Configuración (.env)
+
+```env
+# GitHub API
+GITHUB_TOKEN=ghp_xxx
+
+# LLM (OpenAI-compatible)
+LLM_API_KEY=xxx
 LLM_BASE_URL=https://api.openai.com/v1
 LLM_MODEL=gpt-4o-mini
+LLM_MAX_TOKENS=500
+LLM_TEMPERATURE=0.6
 
-# Ollama (local)
-LLM_BASE_URL=http://localhost:11434/v1
-LLM_API_KEY=ollama
-LLM_MODEL=llama3.1
+# Twitter/X API (OAuth 1.0a User Context)
+TWITTER_API_KEY=
+TWITTER_API_SECRET=
+TWITTER_ACCESS_TOKEN=
+TWITTER_ACCESS_SECRET=
+
+# Estado
+STATE_FILE=state.json
+
+# Control de longitud
+FORCE_280_CHAR_TWEET=false
+
+# Noticias
+NEWS_SOURCE=hacker_news  # hacker_news | best
+NEWS_LIMIT=5
+NEWS_MIN_SCORE=50        # Filtrar ruido (solo 50+ puntos)
+
+# Métricas
+METRICS_DB_PATH=metrics.db
+METRICS_COLLECT_INTERVAL=60  # minutos
+
+# Pesos de engagement
+ENG_WEIGHT_LIKES=1.0
+ENG_WEIGHT_RTS=2.0
+ENG_WEIGHT_REPLIES=3.0
+ENG_WEIGHT_BOOKMARKS=2.5
 ```
 
-## Estructura del proyecto
-
-```
-.
-├── .env              # Credenciales (no versionar)
-├── state.json        # IDs de repos ya publicados (se gestiona solo)
-├── tweets/           # Carpeta con los tweets generados
-├── config.py         # Carga y exporta variables de entorno
-├── github_client.py  # Busca el repo con más stars del último mes
-├── llm_client.py     # Genera el texto del tweet con un LLM
-├── state_manager.py  # Persistencia en state.json
-├── menu.py           # Menú interactivo y gestión de historial
-└── main.py           # Orquestador principal
-```
-
-## Ejecución
+## Ejecución Automatizada (cron)
 
 ```bash
-python main.py
+# Bot de noticias a las 09:00
+0 9 * * * cd /ruta/a/trending2tweet && python main_news.py >> logs/news.log 2>&1
+
+# Bot de GitHub a las 12:00
+0 12 * * * cd /ruta/a/trending2tweet && python main_github.py >> logs/github.log 2>&1
+
+# Recolector de métricas cada 2 horas
+0 */2 * * * cd /ruta/a/trending2tweet && python metrics_collector.py >> logs/metrics.log 2>&1
 ```
 
-Al ejecutar, aparece un menú interactivo:
-
-```
-==================================================
-         Trending2Tweet
-==================================================
-  1. Iniciar a twittear
-  2. Gestionar historial
-  0. Salir
-==================================================
-```
-
-### Opción 1: Iniciar a twittear
-
-1. **Descubrimiento** — Consulta la GitHub Search API para obtener los 10 repos creados en los últimos 30 días ordenados por estrellas.
-2. **Filtrado** — Descarta repos ya publicados comparando con `state.json`.
-3. **Interacción** — Muestra cada repo y pregunta al usuario si quiere generar un tweet para él.
-4. **Generación** — Envía los datos del repo al LLM para redactar un tweet técnico, adaptando la longitud según la configuración.
-5. **Guardado** — Guarda el tweet en un archivo `.txt` dentro de la carpeta `tweets/` con formato `tweet_REPO_TIMESTAMP.txt`.
-6. **Persistencia** — Guarda el ID del repo en `state.json` para no repetirlo.
-7. **Continuar** — Pregunta si quiere buscar el siguiente repositorio en la lista.
-
-El usuario copia el contenido del archivo `.txt` y lo publica manualmente en X.
-
-### Opción 2: Gestionar historial
-
-Permite:
-- Ver repos procesados en `state.json`
-- Ver archivos de tweets guardados
-- Eliminar repos específicos del historial
-- Eliminar archivos de tweets específicos
-- Limpiar todo el historial (state.json + carpeta tweets/)
-
-## Ejecución periódica (cron)
-
-Para ejecutar el bot una vez al día a las 9:00:
-
+O usar el script de configuración:
 ```bash
-crontab -e
+bash setup_metrics_cron.sh
 ```
 
-```cron
-0 9 * * * cd /ruta/al/proyecto && /usr/bin/python3 main.py >> bot.log 2>&1
-```
+## Formato de IDs
 
-## Configuración de longitud de tweets
+- GitHub: `gh_{id_numerico}` (ej: `gh_1286080397`)
+- Hacker News: `nw_{id_numerico}` (ej: `nw_49063754`)
 
-| `FORCE_280_CHAR_TWEET` | Comportamiento                                              | Requisito      |
-| ----------------------- | ----------------------------------------------------------- | -------------- |
-| `true`                  | La IA genera tweets de máximo 280 caracteres                | Cualquier plan |
-| `false`                 | La IA genera tweets largos con más detalle técnico          | X Premium      |
+Los IDs se almacenan en `state.json` para evitar duplicados.
 
-## Manejo de errores
+## Filtro de Calidad (Noticias)
 
-| Escenario              | Comportamiento                             |
-| ---------------------- | ------------------------------------------ |
-| Error en la API de LLM | Mensaje de error y salida limpia           |
-| Sin repos nuevos       | Mensaje informativo y salida sin errores   |
-| Repo ya publicado      | Se omite y finaliza sin acción             |
-
-## Notas
-
-- El archivo `state.json` se crea automáticamente en la primera ejecución.
-- No incluir `state.json` ni `.env` en control de versiones.
-- Los tweets se guardan en la carpeta `tweets/` con el formato `tweet_REPO_TIMESTAMP.txt`.
-- La carpeta `tweets/` se crea automáticamente si no existe.
+El parámetro `NEWS_MIN_SCORE` filtra noticias con puntuación baja:
+- `0`: Sin filtro (todas las noticias)
+- `50`: Moderado (recomendado)
+- `100`: Estricto (solo las mejores)
