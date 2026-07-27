@@ -15,9 +15,6 @@ LLM_MODEL: str = os.getenv("LLM_MODEL", "gpt-4o-mini")
 LLM_MAX_TOKENS: int = int(os.getenv("LLM_MAX_TOKENS", "1024"))
 LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.2"))
 
-# Estado
-STATE_FILE: str = os.getenv("STATE_FILE", "state.json")
-
 # Control de longitud de tweets
 # true  = tweets limitados a 280 caracteres (modo estándar)
 # false = tweets de cualquier largo (X Premium)

@@ -19,19 +19,16 @@ trending2tweet/
 ├── main_github.py              # Bot de GitHub (ejecutar al mediodía)
 ├── main_news.py                # Bot de noticias (ejecutar por la mañana)
 ├── main_github_manual.py       # Bot manual para un repo específico
-├── metrics_db.py               # Base de datos SQLite (reemplaza state.json)
+├── metrics_db.py               # Base de datos SQLite (estado + métricas)
 ├── metrics_collector.py        # Recolector automático de métricas
 ├── scheduler.py                # Worker que ejecuta collector automáticamente
-├── migrate_state.py            # Migración de state.json → metrics.db
-├── dashboard.py                # Dashboard estático (rich)
+├── migrate_state.py            # Migración de state.json → metrics.db (una vez)
 ├── tui.py                      # Dashboard interactivo (textual)
 ├── tui                         # Alias para ejecutar ./tui
 ├── Procfile                    # Configuración Heroku
 ├── requirements.txt            # Dependencias Python
 └── runtime.txt                 # Versión de Python
 ```
-
-> **Nota:** `state_manager.py` y `state.json` son obsoletos. Todo se gestiona desde `metrics.db`.
 
 ## Bots
 

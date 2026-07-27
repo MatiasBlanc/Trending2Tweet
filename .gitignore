@@ -4,12 +4,8 @@
 # Tweets generados
 tweets/
 
-# State
-state.json
-
 # Metrics database
 metrics.db
-state.json.backup
 
 # Python
 __pycache__/
