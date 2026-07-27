@@ -21,10 +21,14 @@ trending2tweet/
 ├── main_github_manual.py       # Bot manual para un repo específico
 ├── metrics_db.py               # Base de datos SQLite (reemplaza state.json)
 ├── metrics_collector.py        # Recolector automático de métricas
+├── scheduler.py                # Worker que ejecuta collector automáticamente
 ├── migrate_state.py            # Migración de state.json → metrics.db
 ├── dashboard.py                # Dashboard estático (rich)
 ├── tui.py                      # Dashboard interactivo (textual)
-└── tui                         # Alias para ejecutar ./tui
+├── tui                         # Alias para ejecutar ./tui
+├── Procfile                    # Configuración Heroku
+├── requirements.txt            # Dependencias Python
+└── runtime.txt                 # Versión de Python
 ```
 
 > **Nota:** `state_manager.py` y `state.json` son obsoletos. Todo se gestiona desde `metrics.db`.
@@ -203,22 +207,126 @@ ENG_WEIGHT_REPLIES=3.0
 ENG_WEIGHT_BOOKMARKS=2.5
 ```
 
-## Ejecución Automatizada (cron)
+## Ejecución Automatizada
+
+### Opción 1: Scheduler local (recomendado para desarrollo)
 
 ```bash
-# Bot de noticias a las 09:00
-0 9 * * * cd /ruta/a/trending2tweet && python main_news.py >> logs/news.log 2>&1
-
-# Bot de GitHub a las 12:00
-0 12 * * * cd /ruta/a/trending2tweet && python main_github.py >> logs/github.log 2>&1
-
-# Recolector de métricas cada 2 horas
-0 */2 * * * cd /ruta/a/trending2tweet && python metrics_collector.py >> logs/metrics.log 2>&1
+# Ejecutar el scheduler como worker
+python scheduler.py
 ```
 
-O usar el script de configuración:
+El scheduler:
+- Revisa cada 5 minutos si hay tweets pendientes
+- Colecta métricas automáticamente a los 30min, 2h, 24h y 7 días
+- Se ejecuta en loop continuo hasta Ctrl+C
+
+### Opción 2: Heroku (producción)
+
+#### 1. Crear app de Heroku
+
 ```bash
-bash setup_metrics_cron.sh
+heroku create trending2tweet-prod
+```
+
+#### 2. Configurar variables de entorno
+
+```bash
+bash setup_heroku.sh trending2tweet-prod
+```
+
+O manualmente:
+
+```bash
+heroku config:set GITHUB_TOKEN=xxx LLM_API_KEY=xxx TWITTER_API_KEY=xxx ... --app trending2tweet-prod
+```
+
+#### 3. Deployar
+
+```bash
+# Agregar remote de Heroku
+heroku git:remote -a trending2tweet-prod
+
+# Push a Heroku
+git push heroku feature/metrics-dashboard:main
+```
+
+#### 4. Iniciar el worker
+
+```bash
+# El worker ejecuta el scheduler automáticamente
+heroku ps:scale worker=1 --app trending2tweet-prod
+```
+
+#### 5. Ver logs
+
+```bash
+heroku logs --tail --app trending2tweet-prod
+```
+
+#### 6. Ejecutar bots manualmente
+
+```bash
+# Ejecutar bot de GitHub
+heroku run python main_github.py --app trending2tweet-prod
+
+# Ejecutar bot de noticias
+heroku run python main_news.py --app trending2tweet-prod
+
+# Ejecutar bot manual
+heroku run python main_github_manual.py facebook/react --app trending2tweet-prod
+```
+
+### Opción 3: Railway (alternativa a Heroku)
+
+```bash
+# Instalar CLI de Railway
+npm install -g @railway/cli
+
+# Login
+railway login
+
+# Crear proyecto
+railway init
+
+# Deployar
+railway up
+
+# Configurar variables
+railway variables set GITHUB_TOKEN=xxx ...
+```
+
+### Opción 4: VPS con systemd (DigitalOcean, Linode, etc.)
+
+```bash
+# Crear servicio systemd
+sudo nano /etc/systemd/system/trending2tweet.service
+```
+
+```ini
+[Unit]
+Description=Trending2Tweet Scheduler
+After=network.target
+
+[Service]
+Type=simple
+User=tu_usuario
+WorkingDirectory=/ruta/a/trending2tweet
+ExecStart=/usr/bin/python3 scheduler.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+# Habilitar y arrancar
+sudo systemctl enable trending2tweet
+sudo systemctl start trending2tweet
+
+# Ver estado
+sudo systemctl status trending2tweet
 ```
 
 ## Formato de IDs
@@ -226,7 +334,7 @@ bash setup_metrics_cron.sh
 - GitHub: `gh_{id_numerico}` (ej: `gh_1286080397`)
 - Hacker News: `nw_{id_numerico}` (ej: `nw_49063754`)
 
-Los IDs se almacenan en `state.json` para evitar duplicados.
+Los IDs se almacenan en `metrics.db` para evitar duplicados.
 
 ## Filtro de Calidad (Noticias)
 
