@@ -1,30 +1,32 @@
-"""Módulo para guardar tweets en bóveda de Obsidian.
+"""Módulo para gestionar tweets en bóveda de Obsidian.
 
-Genera archivos Markdown con frontmatter de Obsidian
-para crear una base de conocimiento de contenido.
+Flujo de trabajo:
+- borradores: tweets generados por el bot (pendientes de revisión)
+- listos: tweets editados y listos para publicar
+- publicados: tweets ya en Twitter (con link)
 
-Funcionalidades:
-- Guardar tweets con metadata completa
-- Actualizar métricas automáticamente
-- Templates de gancho reutilizables
-- Calendario editorial
-- Reportes semanales de engagement
+Subcarpetas:
+- T2T/: tweets automáticos (noticias, github trending)
+- manual/: tweets escritos por el usuario
 """
 
-import json
-import os
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 import config
 
-# Nombre de las carpetas dentro de la bóveda
-TWEETS_FOLDER = "Tweets"
+# ── Estructura de carpetas ────────────────────────────────────
+T2T_FOLDER = "T2T"
+MANUAL_FOLDER = "manual"
+BORRADORES = "borradores"
+LISTOS = "listos"
+PUBLICADOS = "publicados"
 TEMPLATES_FOLDER = "Templates"
 CALENDAR_FOLDER = "Calendar"
 REPORTS_FOLDER = "Reports"
+ANALYTICS_FOLDER = "analytics"
 
 
 def _sanitize_filename(texto: str, max_length: int = 50) -> str:
@@ -37,67 +39,568 @@ def _sanitize_filename(texto: str, max_length: int = 50) -> str:
     Returns:
         Nombre de archivo seguro.
     """
-    # Convertir a minúsculas
     texto = texto.lower()
-    # Reemplazar caracteres especiales por guiones
     texto = re.sub(r'[^a-z0-9\s-]', '', texto)
-    # Reemplazar espacios por guiones
     texto = re.sub(r'\s+', '-', texto.strip())
-    # Eliminar guiones múltiples
     texto = re.sub(r'-+', '-', texto)
-    # Truncar
     return texto[:max_length].rstrip('-')
 
 
-def _build_frontmatter(
-    tweet_id: str,
-    source: str,
-    item_id: Optional[str],
-    published_at: str,
-    prompt_file: Optional[str],
-    template_estilo: Optional[str],
-    url: Optional[str] = None,
-) -> str:
-    """Construye el frontmatter de Obsidian.
-
-    Args:
-        tweet_id: ID del tweet en Twitter.
-        source: Fuente del tweet (news, github, github_manual).
-        item_id: ID del item procesado.
-        published_at: Fecha de publicación ISO.
-        prompt_file: Ruta del prompt usado.
-        template_estilo: Estilo de gancho usado.
-        url: URL de la fuente original.
+def _get_vault_path() -> Optional[Path]:
+    """Obtiene y valida la ruta de la bóveda de Obsidian.
 
     Returns:
-        String con el frontmatter YAML.
+        Path de la bóveda o None si no está configurada.
     """
-    lines = [
-        "---",
-        f"id: {tweet_id}",
-        f"date: {published_at}",
-        f"source: {source}",
-    ]
+    if not config.OBSIDIAN_VAULT_PATH:
+        return None
+    
+    vault_path = Path(config.OBSIDIAN_VAULT_PATH)
+    if not vault_path.exists():
+        print(f"  ⚠️ Bóveda de Obsidian no encontrada: {vault_path}")
+        return None
+    
+    return vault_path
 
-    if item_id:
-        lines.append(f"item_id: {item_id}")
+
+# ── Guardar Borradores ────────────────────────────────────────
+
+
+def guardar_borrador(
+    texto: str,
+    source: str,
+    titulo: Optional[str] = None,
+    url: Optional[str] = None,
+    repo_name: Optional[str] = None,
+    repo_stars: Optional[int] = None,
+    item_id: Optional[str] = None,
+    prompt_file: Optional[str] = None,
+    template_estilo: Optional[str] = None,
+    notas: Optional[str] = None,
+) -> Optional[str]:
+    """Guarda un tweet como borrador en la bóveda de Obsidian.
+
+    Los borradores son tweets generados por el bot que necesitan
+    revisión antes de ser publicados.
+
+    Args:
+        texto: Contenido del tweet generado.
+        source: Fuente (news, github, github_manual, manual).
+        titulo: Título descriptivo del tweet.
+        url: URL de la fuente original.
+        repo_name: Nombre del repo (si es de GitHub).
+        repo_stars: Stars del repo (si es de GitHub).
+        item_id: ID del item procesado.
+        prompt_file: Ruta del prompt usado.
+        template_estilo: Estilo de gancho usado.
+        notas: Notas adicionales.
+
+    Returns:
+        Ruta del archivo creado, o None si no se pudo guardar.
+    """
+    vault_path = _get_vault_path()
+    if not vault_path:
+        return None
+    
+    # Determinar carpeta base según la fuente
+    if source.startswith("manual"):
+        base_folder = MANUAL_FOLDER
+    else:
+        base_folder = T2T_FOLDER
+    
+    # Crear estructura de carpetas
+    borradores_dir = vault_path / base_folder / BORRADORES
+    borradores_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Fecha actual
+    now = datetime.now()
+    fecha = now.strftime("%Y-%m-%d")
+    
+    # Generar nombre de archivo
+    if titulo:
+        safe_title = _sanitize_filename(titulo)
+    elif repo_name:
+        safe_title = _sanitize_filename(repo_name.split("/")[-1])
+    else:
+        safe_title = _sanitize_filename(texto[:50])
+    
+    filename = f"{fecha}_{safe_title}.md"
+    filepath = borradores_dir / filename
+    
+    # Si ya existe, agregar sufijo
+    counter = 1
+    while filepath.exists():
+        filepath = borradores_dir / f"{fecha}_{safe_title}_{counter}.md"
+        counter += 1
+    
+    # Construir frontmatter
+    contenido = "---\n"
+    contenido += f"type: tweet\n"
+    contenido += f"status: draft\n"
+    contenido += f"source: {source}\n"
+    contenido += f"date: {now.isoformat()}\n"
     
     if url:
-        lines.append(f"url: {url}")
-    
+        contenido += f"url: {url}\n"
+    if repo_name:
+        contenido += f"repo: {repo_name}\n"
+    if repo_stars:
+        contenido += f"stars: {repo_stars}\n"
+    if item_id:
+        contenido += f"item_id: {item_id}\n"
     if prompt_file:
-        lines.append(f"prompt_file: {prompt_file}")
-    
+        contenido += f"prompt_file: {prompt_file}\n"
     if template_estilo:
-        # Truncar estilo para legibilidad
-        estilo_corto = template_estilo[:80] + "..." if len(template_estilo) > 80 else template_estilo
-        lines.append(f"estilo_gancho: \"{estilo_corto}\"")
+        contenido += f"template: {template_estilo}\n"
     
-    lines.append("status: published")
-    lines.append("engagement_score: 0")
-    lines.append("---")
+    contenido += "---\n\n"
     
-    return "\n".join(lines)
+    # Título
+    if titulo:
+        contenido += f"# {titulo}\n\n"
+    elif repo_name:
+        contenido += f"# {repo_name}\n\n"
+    
+    # Tweet generado
+    contenido += "## Tweet\n\n"
+    contenido += f"{texto}\n\n"
+    
+    # Metadata
+    contenido += "## Metadata\n\n"
+    contenido += f"- **Fuente**: {source}\n"
+    contenido += f"- **Fecha**: {fecha}\n"
+    contenido += f"- **Caracteres**: {len(texto)}\n"
+    if url:
+        contenido += f"- **URL**: {url}\n"
+    if repo_stars:
+        contenido += f"- **Stars**: {repo_stars}\n"
+    
+    # Notas
+    if notas:
+        contenido += f"\n## Notas\n\n{notas}\n"
+    
+    # Checklist de revisión
+    contenido += "\n## Revisión\n\n"
+    contenido += "- [ ] Revisar ortografía\n"
+    contenido += "- [ ] Verificar datos/fuentes\n"
+    contenido += "- [ ] Agregar toque personal\n"
+    contenido += "- [ ] Verificar longitud (280 chars)\n"
+    contenido += "- [ ] Mover a 'listos' cuando esté listo\n"
+    
+    # Escribir archivo
+    try:
+        filepath.write_text(contenido, encoding="utf-8")
+        print(f"  📝 Borrador guardado: {filepath.name}")
+        return str(filepath)
+    except Exception as e:
+        print(f"  ⚠️ Error guardando borrador: {e}")
+        return None
+
+
+# ── Mover entre estados ───────────────────────────────────────
+
+
+def mover_a_listos(filepath: str) -> Optional[str]:
+    """Mueve un borrador a la carpeta de listos para publicar.
+
+    Args:
+        filepath: Ruta del archivo borrador.
+
+    Returns:
+        Ruta del nuevo archivo, o None si falló.
+    """
+    vault_path = _get_vault_path()
+    if not vault_path:
+        return None
+    
+    src = Path(filepath)
+    if not src.exists():
+        print(f"  ⚠️ Archivo no encontrado: {filepath}")
+        return None
+    
+    # Determinar carpeta destino
+    # Detectar si es T2T o manual basado en la ruta
+    if T2T_FOLDER in str(src):
+        dest_dir = vault_path / T2T_FOLDER / LISTOS
+    else:
+        dest_dir = vault_path / MANUAL_FOLDER / LISTOS
+    
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / src.name
+    
+    # Si ya existe, agregar sufijo
+    counter = 1
+    while dest.exists():
+        dest = dest_dir / f"{src.stem}_{counter}{src.suffix}"
+        counter += 1
+    
+    try:
+        # Leer contenido y actualizar status
+        content = src.read_text(encoding="utf-8")
+        content = content.replace("status: draft", "status: ready")
+        dest.write_text(content, encoding="utf-8")
+        
+        # Eliminar original
+        src.unlink()
+        
+        print(f"  ✅ Movido a listos: {dest.name}")
+        return str(dest)
+    except Exception as e:
+        print(f"  ⚠️ Error moviendo archivo: {e}")
+        return None
+
+
+def marcar_como_publicado(
+    filepath: str,
+    tweet_url: str,
+    tweet_id: Optional[str] = None,
+) -> Optional[str]:
+    """Marca un tweet como publicado y lo mueve a publicados.
+
+    Args:
+        filepath: Ruta del archivo listo para publicar.
+        tweet_url: URL del tweet publicado.
+        tweet_id: ID del tweet en Twitter.
+
+    Returns:
+        Ruta del archivo actualizado, o None si falló.
+    """
+    vault_path = _get_vault_path()
+    if not vault_path:
+        return None
+    
+    src = Path(filepath)
+    if not src.exists():
+        print(f"  ⚠️ Archivo no encontrado: {filepath}")
+        return None
+    
+    # Determinar carpeta destino
+    if T2T_FOLDER in str(src):
+        dest_dir = vault_path / T2T_FOLDER / PUBLICADOS
+    else:
+        dest_dir = vault_path / MANUAL_FOLDER / PUBLICADOS
+    
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / src.name
+    
+    try:
+        # Leer contenido y actualizar
+        content = src.read_text(encoding="utf-8")
+        
+        # Actualizar frontmatter
+        content = content.replace("status: ready", "status: published")
+        content = content.replace("status: draft", "status: published")
+        
+        # Agregar campos de publicación al frontmatter
+        now = datetime.now().isoformat()
+        publicacion = f"published_at: {now}\ntweet_url: {tweet_url}\n"
+        if tweet_id:
+            publicacion += f"tweet_id: {tweet_id}\n"
+        
+        # Insertar después de la primera línea de ---
+        content = content.replace("---\n", f"---\n{publicacion}", 1)
+        
+        # Agregar sección de publicación
+        content += f"\n## Publicación\n\n"
+        content += f"- **Publicado**: {now}\n"
+        content += f"- **URL**: [{tweet_url}]({tweet_url})\n"
+        if tweet_id:
+            content += f"- **Tweet ID**: {tweet_id}\n"
+        
+        dest.write_text(content, encoding="utf-8")
+        src.unlink()
+        
+        print(f"  🐦 Marcado como publicado: {dest.name}")
+        return str(dest)
+    except Exception as e:
+        print(f"  ⚠️ Error marcando como publicado: {e}")
+        return None
+
+
+# ── Listar tweets ─────────────────────────────────────────────
+
+
+def listar_borradores(source: Optional[str] = None) -> list[dict]:
+    """Lista todos los borradores pendientes.
+
+    Args:
+        source: Filtrar por fuente (t2t, manual, o None para todos).
+
+    Returns:
+        Lista de borradores con su metadata.
+    """
+    vault_path = _get_vault_path()
+    if not vault_path:
+        return []
+    
+    borradores = []
+    carpetas = []
+    
+    if source == "t2t":
+        carpetas = [vault_path / T2T_FOLDER / BORRADORES]
+    elif source == "manual":
+        carpetas = [vault_path / MANUAL_FOLDER / BORRADORES]
+    else:
+        carpetas = [
+            vault_path / T2T_FOLDER / BORRADORES,
+            vault_path / MANUAL_FOLDER / BORRADORES,
+        ]
+    
+    for carpeta in carpetas:
+        if not carpeta.exists():
+            continue
+        
+        for md_file in carpeta.glob("*.md"):
+            info = _parsear_frontmatter(md_file)
+            if info:
+                info["filepath"] = str(md_file)
+                info["folder"] = "t2t" if T2T_FOLDER in str(md_file) else "manual"
+                borradores.append(info)
+    
+    return sorted(borradores, key=lambda x: x.get("date", ""), reverse=True)
+
+
+def listar_listos() -> list[dict]:
+    """Lista todos los tweets listos para publicar.
+
+    Returns:
+        Lista de tweets listos con su metadata.
+    """
+    vault_path = _get_vault_path()
+    if not vault_path:
+        return []
+    
+    listos = []
+    
+    for carpeta_base in [T2T_FOLDER, MANUAL_FOLDER]:
+        carpeta = vault_path / carpeta_base / LISTOS
+        if not carpeta.exists():
+            continue
+        
+        for md_file in carpeta.glob("*.md"):
+            info = _parsear_frontmatter(md_file)
+            if info:
+                info["filepath"] = str(md_file)
+                info["folder"] = carpeta_base
+                listos.append(info)
+    
+    return sorted(listos, key=lambda x: x.get("date", ""), reverse=True)
+
+
+def listar_publicados(source: Optional[str] = None) -> list[dict]:
+    """Lista todos los tweets publicados.
+
+    Args:
+        source: Filtrar por fuente (t2t, manual, o None para todos).
+
+    Returns:
+        Lista de tweets publicados con su metadata.
+    """
+    vault_path = _get_vault_path()
+    if not vault_path:
+        return []
+    
+    publicados = []
+    carpetas = []
+    
+    if source == "t2t":
+        carpetas = [vault_path / T2T_FOLDER / PUBLICADOS]
+    elif source == "manual":
+        carpetas = [vault_path / MANUAL_FOLDER / PUBLICADOS]
+    else:
+        carpetas = [
+            vault_path / T2T_FOLDER / PUBLICADOS,
+            vault_path / MANUAL_FOLDER / PUBLICADOS,
+        ]
+    
+    for carpeta in carpetas:
+        if not carpeta.exists():
+            continue
+        
+        for md_file in carpeta.glob("*.md"):
+            info = _parsear_frontmatter(md_file)
+            if info:
+                info["filepath"] = str(md_file)
+                publicados.append(info)
+    
+    return sorted(publicados, key=lambda x: x.get("published_at", ""), reverse=True)
+
+
+def _parsear_frontmatter(filepath: Path) -> Optional[dict]:
+    """Parsea el frontmatter de un archivo Markdown.
+
+    Args:
+        filepath: Ruta del archivo.
+
+    Returns:
+        Diccionario con la metadata o None si no se pudo parsear.
+    """
+    try:
+        content = filepath.read_text(encoding="utf-8")
+        
+        if not content.startswith("---"):
+            return None
+        
+        end_idx = content.find("---", 3)
+        if end_idx == -1:
+            return None
+        
+        frontmatter = content[3:end_idx].strip()
+        info = {"filename": filepath.name}
+        
+        for line in frontmatter.split("\n"):
+            if ":" in line and not line.strip().startswith("-"):
+                key, value = line.split(":", 1)
+                info[key.strip()] = value.strip().strip('"')
+        
+        # Extraer el tweet del contenido
+        tweet_match = re.search(r"## Tweet\n\n(.+?)(?=\n## |\Z)", content, re.DOTALL)
+        if tweet_match:
+            info["tweet_text"] = tweet_match.group(1).strip()
+        
+        return info
+    except Exception:
+        return None
+
+
+# ── Obtener tweet para publicar ───────────────────────────────
+
+
+def obtener_tweet_para_publicar(filepath: str) -> Optional[str]:
+    """Obtiene el texto del tweet de un archivo listo para publicar.
+
+    Args:
+        filepath: Ruta del archivo.
+
+    Returns:
+        Texto del tweet o None si no se encontró.
+    """
+    try:
+        content = Path(filepath).read_text(encoding="utf-8")
+        
+        # Buscar sección "## Tweet"
+        match = re.search(r"## Tweet\n\n(.+?)(?=\n## |\Z)", content, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+        
+        return None
+    except Exception:
+        return None
+
+
+# ── Analytics ─────────────────────────────────────────────────
+
+
+def guardar_analytics(csv_path: str, mes: Optional[str] = None) -> Optional[str]:
+    """Guarda un CSV de Twitter Analytics en la bóveda.
+
+    Args:
+        csv_path: Ruta al archivo CSV.
+        mes: Mes en formato YYYY-MM (opcional, se detecta del CSV).
+
+    Returns:
+        Ruta del archivo guardado, o None si falló.
+    """
+    vault_path = _get_vault_path()
+    if not vault_path:
+        return None
+    
+    analytics_dir = vault_path / ANALYTICS_FOLDER
+    analytics_dir.mkdir(parents=True, exist_ok=True)
+    
+    src = Path(csv_path)
+    if not src.exists():
+        print(f"  ⚠️ CSV no encontrado: {csv_path}")
+        return None
+    
+    # Detectar mes del nombre del archivo o usar el proporcionado
+    if not mes:
+        # Intentar detectar del nombre: analytics_2026-07.csv
+        match = re.search(r'(\d{4}-\d{2})', src.name)
+        if match:
+            mes = match.group(1)
+        else:
+            mes = datetime.now().strftime("%Y-%m")
+    
+    dest = analytics_dir / f"{mes}.csv"
+    
+    try:
+        import shutil
+        shutil.copy2(src, dest)
+        print(f"  📊 Analytics guardado: {dest.name}")
+        return str(dest)
+    except Exception as e:
+        print(f"  ⚠️ Error guardando analytics: {e}")
+        return None
+
+
+def obtener_analytics() -> list[dict]:
+    """Obtiene resumen de los analytics disponibles.
+
+    Returns:
+        Lista de diccionarios con info de cada CSV.
+    """
+    vault_path = _get_vault_path()
+    if not vault_path:
+        return []
+    
+    analytics_dir = vault_path / ANALYTICS_FOLDER
+    if not analytics_dir.exists():
+        return []
+    
+    analytics = []
+    
+    for csv_file in sorted(analytics_dir.glob("*.csv"), reverse=True):
+        try:
+            # Leer primera línea para obtener headers
+            with open(csv_file, "r", encoding="utf-8") as f:
+                headers = f.readline().strip().split(",")
+            
+            # Contar líneas (excluyendo header)
+            with open(csv_file, "r", encoding="utf-8") as f:
+                line_count = sum(1 for _ in f) - 1
+            
+            analytics.append({
+                "file": str(csv_file),
+                "filename": csv_file.name,
+                "mes": csv_file.stem,
+                "columns": len(headers),
+                "tweets": line_count,
+            })
+        except Exception:
+            continue
+    
+    return analytics
+
+
+# ── Estadísticas ──────────────────────────────────────────────
+
+
+def obtener_estadisticas() -> dict:
+    """Obtiene estadísticas generales de la bóveda.
+
+    Returns:
+        Diccionario con estadísticas.
+    """
+    borradores = listar_borradores()
+    listos = listar_listos()
+    publicados = listar_publicados()
+    analytics = obtener_analytics()
+    
+    return {
+        "borradores": len(borradores),
+        "listos": len(listos),
+        "publicados": len(publicados),
+        "analytics_months": len(analytics),
+        "borradores_t2t": len([b for b in borradores if b.get("folder") == "t2t"]),
+        "borradores_manual": len([b for b in borradores if b.get("folder") == "manual"]),
+    }
+
+
+# ── Compatibilidad con código anterior ────────────────────────
+# Estas funciones mantienen compatibilidad con el código existente
+
+TWEETS_FOLDER = T2T_FOLDER  # Alias para compatibilidad
 
 
 def guardar_tweet_en_vault(
@@ -111,107 +614,22 @@ def guardar_tweet_en_vault(
     url: Optional[str] = None,
     title: Optional[str] = None,
 ) -> Optional[str]:
-    """Guarda un tweet como archivo Markdown en la bóveda de Obsidian.
-
-    Args:
-        tweet_id: ID del tweet en Twitter.
-        texto: Contenido del tweet.
-        source: Fuente (news, github, github_manual).
-        item_id: ID del item procesado.
-        published_at: Fecha de publicación (ISO string).
-        prompt_file: Ruta del prompt usado.
-        template_estilo: Estilo de gancho usado.
-        url: URL de la fuente original.
-        title: Título del tweet (para el nombre del archivo).
-
-    Returns:
-        Ruta del archivo creado, o None si no se pudo guardar.
-    """
-    # Verificar que la bóveda esté configurada
-    if not config.OBSIDIAN_VAULT_PATH:
-        return None
-    
-    vault_path = Path(config.OBSIDIAN_VAULT_PATH)
-    
-    # Verificar que la bóveda existe
-    if not vault_path.exists():
-        print(f"  ⚠️ Bóveda de Obsidian no encontrada: {vault_path}")
-        return None
-    
-    # Crear carpeta de tweets si no existe
-    tweets_dir = vault_path / TWEETS_FOLDER / source
-    tweets_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Fecha de publicación
-    if not published_at:
-        published_at = datetime.now().isoformat()
-    
-    # Generar nombre de archivo
-    fecha = datetime.fromisoformat(published_at.replace("Z", "+00:00")).strftime("%Y-%m-%d")
-    
-    if title:
-        safe_title = _sanitize_filename(title)
-    else:
-        # Usar las primeras palabras del tweet
-        safe_title = _sanitize_filename(texto[:50])
-    
-    filename = f"{fecha}_{safe_title}.md"
-    filepath = tweets_dir / filename
-    
-    # Si ya existe, agregar sufijo
-    counter = 1
-    while filepath.exists():
-        filepath = tweets_dir / f"{fecha}_{safe_title}_{counter}.md"
-        counter += 1
-    
-    # Construir contenido Markdown
-    frontmatter = _build_frontmatter(
-        tweet_id=tweet_id,
+    """Función de compatibilidad. Usa guardar_borrador() para nuevos tweets."""
+    return guardar_borrador(
+        texto=texto,
         source=source,
+        titulo=title,
+        url=url,
         item_id=item_id,
-        published_at=published_at,
         prompt_file=prompt_file,
         template_estilo=template_estilo,
-        url=url,
     )
-    
-    # Separar el tweet en secciones
-    contenido = f"{frontmatter}\n\n"
-    contenido += f"# {title or 'Tweet'}\n\n"
-    contenido += "## Tweet\n\n"
-    contenido += f"{texto}\n\n"
-    
-    if url:
-        contenido += "## Fuente\n\n"
-        contenido += f"- URL: {url}\n"
-        if item_id:
-            contenido += f"- ID: {item_id}\n"
-        contenido += "\n"
-    
-    contenido += "## Metadata\n\n"
-    contenido += f"- **Publicado**: {published_at}\n"
-    contenido += f"- **Fuente**: {source}\n"
-    contenido += f"- **Tweet ID**: [{tweet_id}](https://twitter.com/i/status/{tweet_id})\n"
-    
-    if template_estilo:
-        contenido += f"\n## Estilo de Gancho\n\n"
-        contenido += f"> {template_estilo}\n\n"
-    
-    contenido += "## Métricas\n\n"
-    contenido += "*Las métricas se actualizarán automáticamente...*\n\n"
-    contenido += "- ❤️ Likes: 0\n"
-    contenido += "- 🔁 Retweets: 0\n"
-    contenido += "- 💬 Replies: 0\n"
-    contenido += "- 👁 Impressions: 0\n"
-    
-    # Escribir archivo
-    try:
-        filepath.write_text(contenido, encoding="utf-8")
-        print(f"  📝 Guardado en Obsidian: {filepath.relative_to(vault_path)}")
-        return str(filepath)
-    except Exception as e:
-        print(f"  ⚠️ Error guardando en Obsidian: {e}")
-        return None
+
+
+def listar_tweets_en_vault(source: Optional[str] = None) -> list[dict]:
+    """Función de compatibilidad. Lista todos los tweets."""
+    todos = listar_borradores(source) + listar_listos() + listar_publicados(source)
+    return todos
 
 
 def actualizar_metricas_en_vault(
@@ -222,10 +640,7 @@ def actualizar_metricas_en_vault(
     impressions: int,
     bookmarks: int = 0,
 ) -> bool:
-    """Actualiza las métricas de un tweet en la bóveda de Obsidian.
-
-    Busca el archivo por tweet_id en el frontmatter y actualiza
-    la sección de métricas.
+    """Actualiza métricas de un tweet publicado.
 
     Args:
         tweet_id: ID del tweet.
@@ -238,122 +653,46 @@ def actualizar_metricas_en_vault(
     Returns:
         True si se actualizó correctamente.
     """
-    if not config.OBSIDIAN_VAULT_PATH:
+    vault_path = _get_vault_path()
+    if not vault_path:
         return False
     
-    vault_path = Path(config.OBSIDIAN_VAULT_PATH)
-    
-    if not vault_path.exists():
-        return False
-    
-    # Buscar archivos que contengan el tweet_id
-    tweets_dir = vault_path / TWEETS_FOLDER
-    
-    if not tweets_dir.exists():
-        return False
-    
-    # Buscar en todos los archivos .md
-    for md_file in tweets_dir.rglob("*.md"):
-        try:
-            content = md_file.read_text(encoding="utf-8")
-            
-            # Verificar si este archivo contiene el tweet_id
-            if f"id: {tweet_id}" not in content:
-                continue
-            
-            # Actualizar sección de métricas
-            metricas_nuevas = (
-                "## Métricas\n\n"
-                f"*Última actualización: {datetime.now().strftime('%Y-%m-%d %H:%M')}*\n\n"
-                f"- ❤️ Likes: {likes}\n"
-                f"- 🔁 Retweets: {retweets}\n"
-                f"- 💬 Replies: {replies}\n"
-                f"- 👁 Impressions: {impressions}\n"
-                f"- 🔖 Bookmarks: {bookmarks}\n"
-            )
-            
-            # Reemplazar sección de métricas usando regex
-            patron = r"## Métricas\n\n.*?(?=\n## |\Z)"
-            contenido_nuevo = re.sub(
-                patron,
-                metricas_nuevas,
-                content,
-                flags=re.DOTALL
-            )
-            
-            # Actualizar engagement_score en frontmatter
-            engagement_score = likes + (retweets * 2) + (replies * 3) + (bookmarks * 2.5)
-            contenido_nuevo = re.sub(
-                r"engagement_score: \d+",
-                f"engagement_score: {engagement_score}",
-                contenido_nuevo
-            )
-            
-            md_file.write_text(contenido_nuevo, encoding="utf-8")
-            return True
-            
-        except Exception as e:
-            print(f"  ⚠️ Error actualizando {md_file}: {e}")
+    # Buscar en publicados
+    for carpeta_base in [T2T_FOLDER, MANUAL_FOLDER]:
+        carpeta = vault_path / carpeta_base / PUBLICADOS
+        if not carpeta.exists():
             continue
+        
+        for md_file in carpeta.glob("*.md"):
+            try:
+                content = md_file.read_text(encoding="utf-8")
+                
+                if f"tweet_id: {tweet_id}" not in content:
+                    continue
+                
+                # Actualizar métricas
+                metricas = (
+                    "## Métricas\n\n"
+                    f"*Última actualización: {datetime.now().strftime('%Y-%m-%d %H:%M')}*\n\n"
+                    f"- ❤️ Likes: {likes}\n"
+                    f"- 🔁 Retweets: {retweets}\n"
+                    f"- 💬 Replies: {replies}\n"
+                    f"- 👁 Impressions: {impressions}\n"
+                    f"- 🔖 Bookmarks: {bookmarks}\n"
+                )
+                
+                patron = r"## Métricas\n\n.*?(?=\n## |\Z)"
+                contenido_nuevo = re.sub(patron, metricas, content, flags=re.DOTALL)
+                
+                md_file.write_text(contenido_nuevo, encoding="utf-8")
+                return True
+            except Exception:
+                continue
     
     return False
 
 
-def listar_tweets_en_vault(source: Optional[str] = None) -> list[dict]:
-    """Lista todos los tweets guardados en la bóveda.
-
-    Args:
-        source: Filtrar por fuente (opcional).
-
-    Returns:
-        Lista de diccionarios con información de cada tweet.
-    """
-    if not config.OBSIDIAN_VAULT_PATH:
-        return []
-    
-    vault_path = Path(config.OBSIDIAN_VAULT_PATH)
-    tweets_dir = vault_path / TWEETS_FOLDER
-    
-    if not tweets_dir.exists():
-        return []
-    
-    tweets = []
-    
-    for md_file in tweets_dir.rglob("*.md"):
-        try:
-            content = md_file.read_text(encoding="utf-8")
-            
-            # Extraer frontmatter
-            if not content.startswith("---"):
-                continue
-            
-            end_idx = content.find("---", 3)
-            if end_idx == -1:
-                continue
-            
-            frontmatter = content[3:end_idx].strip()
-            
-            # Parsear campos básicos
-            tweet_info = {"file": str(md_file)}
-            
-            for line in frontmatter.split("\n"):
-                if ":" in line:
-                    key, value = line.split(":", 1)
-                    tweet_info[key.strip()] = value.strip().strip('"')
-            
-            # Filtrar por source si se especifica
-            if source and tweet_info.get("source") != source:
-                continue
-            
-            tweets.append(tweet_info)
-            
-        except Exception:
-            continue
-    
-    return tweets
-
-
-# ── Templates de Gancho ───────────────────────────────────────
+# ── Templates (se mantienen igual) ────────────────────────────
 
 
 def guardar_template(
@@ -377,18 +716,16 @@ def guardar_template(
     Returns:
         Ruta del archivo creado, o None si falló.
     """
-    if not config.OBSIDIAN_VAULT_PATH:
+    vault_path = _get_vault_path()
+    if not vault_path:
         return None
     
-    vault_path = Path(config.OBSIDIAN_VAULT_PATH)
     templates_dir = vault_path / TEMPLATES_FOLDER
     templates_dir.mkdir(parents=True, exist_ok=True)
     
-    # Sanitizar nombre para archivo
     safe_name = _sanitize_filename(nombre)
     filepath = templates_dir / f"{safe_name}.md"
     
-    # Construir contenido
     contenido = f"""---
 type: template
 nombre: "{nombre}"
@@ -442,42 +779,20 @@ def listar_templates() -> list[dict]:
     Returns:
         Lista de diccionarios con información de cada template.
     """
-    if not config.OBSIDIAN_VAULT_PATH:
+    vault_path = _get_vault_path()
+    if not vault_path:
         return []
     
-    vault_path = Path(config.OBSIDIAN_VAULT_PATH)
     templates_dir = vault_path / TEMPLATES_FOLDER
-    
     if not templates_dir.exists():
         return []
     
     templates = []
     
     for md_file in templates_dir.glob("*.md"):
-        try:
-            content = md_file.read_text(encoding="utf-8")
-            
-            # Extraer frontmatter
-            if not content.startswith("---"):
-                continue
-            
-            end_idx = content.find("---", 3)
-            if end_idx == -1:
-                continue
-            
-            frontmatter = content[3:end_idx].strip()
-            
-            template_info = {"file": str(md_file)}
-            
-            for line in frontmatter.split("\n"):
-                if ":" in line:
-                    key, value = line.split(":", 1)
-                    template_info[key.strip()] = value.strip().strip('"')
-            
-            templates.append(template_info)
-            
-        except Exception:
-            continue
+        info = _parsear_frontmatter(md_file)
+        if info:
+            templates.append(info)
     
     return templates
 
@@ -495,13 +810,12 @@ def obtener_template(nombre: str) -> Optional[str]:
     
     for template in templates:
         if template.get("nombre") == nombre:
-            filepath = Path(template["file"])
-            content = filepath.read_text(encoding="utf-8")
-            
-            # Extraer sección "Estilo de Gancho"
-            match = re.search(r"## Estilo de Gancho\n\n(.+?)(?=\n## |\Z)", content, re.DOTALL)
-            if match:
-                return match.group(1).strip()
+            filepath = Path(template.get("filename", ""))
+            if filepath.exists():
+                content = filepath.read_text(encoding="utf-8")
+                match = re.search(r"## Estilo de Gancho\n\n(.+?)(?=\n## |\Z)", content, re.DOTALL)
+                if match:
+                    return match.group(1).strip()
     
     return None
 
@@ -521,29 +835,27 @@ def agregar_al_calendario(
     Args:
         fecha: Fecha en formato YYYY-MM-DD.
         hora: Hora en formato HH:MM.
-        Tipo: Tipo de publicación (news, github, manual, thread).
+        tipo: Tipo de publicación (news, github, manual, thread).
         tema: Tema o título del tweet.
         notas: Notas adicionales.
 
     Returns:
         Ruta del archivo actualizado, o None si falló.
     """
-    if not config.OBSIDIAN_VAULT_PATH:
+    vault_path = _get_vault_path()
+    if not vault_path:
         return None
     
-    vault_path = Path(config.OBSIDIAN_VAULT_PATH)
     calendar_dir = vault_path / CALENDAR_FOLDER
     calendar_dir.mkdir(parents=True, exist_ok=True)
     
     filepath = calendar_dir / f"{fecha}.md"
     
-    # Crear o agregar al archivo
     if filepath.exists():
         contenido = filepath.read_text(encoding="utf-8")
     else:
         contenido = f"---\ndate: {fecha}\ntype: calendar\n---\n\n# Calendario Editorial - {fecha}\n\n"
     
-    # Agregar entrada
     entrada = f"- [ ] **{hora}** [{tipo}] {tema}"
     if notas:
         entrada += f"\n  > {notas}"
@@ -568,23 +880,21 @@ def obtener_calendario(semana: Optional[str] = None) -> list[dict]:
     Returns:
         Lista de entradas del calendario.
     """
-    if not config.OBSIDIAN_VAULT_PATH:
+    vault_path = _get_vault_path()
+    if not vault_path:
         return []
     
-    vault_path = Path(config.OBSIDIAN_VAULT_PATH)
     calendar_dir = vault_path / CALENDAR_FOLDER
-    
     if not calendar_dir.exists():
         return []
     
-    # Determinar rango de fechas
+    from datetime import timedelta
+    
     if semana:
         inicio = datetime.strptime(semana, "%Y-%m-%d")
     else:
         hoy = datetime.now()
-        inicio = hoy - timedelta(days=hoy.weekday())  # Lunes
-    
-    fin = inicio + timedelta(days=7)
+        inicio = hoy - timedelta(days=hoy.weekday())
     
     entradas = []
     
@@ -598,10 +908,8 @@ def obtener_calendario(semana: Optional[str] = None) -> list[dict]:
         try:
             content = filepath.read_text(encoding="utf-8")
             
-            # Extraer entradas (líneas que empiezan con - [ ])
             for line in content.split("\n"):
                 if line.strip().startswith("- ["):
-                    # Parsear: - [ ] **HH:MM** [tipo] tema
                     match = re.match(
                         r"- \[.\] \*\*(.+?)\*\* \[(.+?)\] (.+)",
                         line.strip()
@@ -618,184 +926,3 @@ def obtener_calendario(semana: Optional[str] = None) -> list[dict]:
             continue
     
     return sorted(entradas, key=lambda x: (x["fecha"], x["hora"]))
-
-
-# ── Reportes Semanales ────────────────────────────────────────
-
-
-def generar_reporte_semanal(semana: Optional[str] = None) -> Optional[str]:
-    """Genera un reporte semanal de engagement.
-
-    Args:
-        semana: Fecha de inicio de la semana (YYYY-MM-DD). Si es None,
-                usa la semana anterior.
-
-    Returns:
-        Ruta del archivo del reporte, o None si falló.
-    """
-    if not config.OBSIDIAN_VAULT_PATH:
-        return None
-    
-    vault_path = Path(config.OBSIDIAN_VAULT_PATH)
-    reports_dir = vault_path / REPORTS_FOLDER
-    reports_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Determinar rango de fechas
-    if semana:
-        inicio = datetime.strptime(semana, "%Y-%m-%d")
-    else:
-        hoy = datetime.now()
-        inicio = hoy - timedelta(days=hoy.weekday() + 7)  # Lunes pasado
-    
-    fin = inicio + timedelta(days=7)
-    semana_str = inicio.strftime("%Y-W%W")
-    
-    # Obtener tweets de la semana
-    tweets = listar_tweets_en_vault()
-    tweets_semana = []
-    
-    for tweet in tweets:
-        try:
-            fecha_str = tweet.get("date", "")
-            if not fecha_str:
-                continue
-            
-            fecha = datetime.fromisoformat(fecha_str.replace("Z", "+00:00"))
-            if inicio <= fecha < fin:
-                tweets_semana.append(tweet)
-        except (ValueError, TypeError):
-            continue
-    
-    # Calcular estadísticas
-    total_tweets = len(tweets_semana)
-    total_engagement = sum(
-        float(t.get("engagement_score", 0)) for t in tweets_semana
-    )
-    
-    # Agrupar por fuente
-    por_fuente = {}
-    for tweet in tweets_semana:
-        fuente = tweet.get("source", "unknown")
-        if fuente not in por_fuente:
-            por_fuente[fuente] = {"count": 0, "engagement": 0}
-        por_fuente[fuente]["count"] += 1
-        por_fuente[fuente]["engagement"] += float(tweet.get("engagement_score", 0))
-    
-    # Encontrar mejor y peor tweet
-    mejor_tweet = max(tweets_semana, key=lambda t: float(t.get("engagement_score", 0)), default=None)
-    peor_tweet = min(tweets_semana, key=lambda t: float(t.get("engagement_score", 0)), default=None)
-    
-    # Generar reporte
-    contenido = f"""---
-type: report
-semana: {semana_str}
-genereado: {datetime.now().isoformat()}
-tweets_total: {total_tweets}
-engagement_total: {total_engagement}
----
-
-# 📊 Reporte Semanal - {semana_str}
-
-**Período**: {inicio.strftime('%d/%m/%Y')} - {fin.strftime('%d/%m/%Y')}
-
-## Resumen
-
-| Métrica | Valor |
-|---------|-------|
-| Tweets publicados | {total_tweets} |
-| Engagement total | {total_engagement:.1f} |
-| Engagement promedio | {total_engagement / total_tweets if total_tweets > 0 else 0:.1f} |
-
-## Por Fuente
-
-| Fuente | Tweets | Engagement | Promedio |
-|--------|--------|------------|----------|
-"""
-    
-    for fuente, stats in por_fuente.items():
-        promedio = stats["engagement"] / stats["count"] if stats["count"] > 0 else 0
-        contenido += f"| {fuente} | {stats['count']} | {stats['engagement']:.1f} | {promedio:.1f} |\n"
-    
-    contenido += "\n## Mejores Tweets\n\n"
-    
-    if mejor_tweet:
-        contenido += f"""### 🏆 Mejor Tweet
-
-- **Fuente**: {mejor_tweet.get('source', 'N/A')}
-- **Engagement**: {mejor_tweet.get('engagement_score', 0)}
-- **ID**: [{mejor_tweet.get('id', 'N/A')}](https://twitter.com/i/status/{mejor_tweet.get('id', '')})
-- **Archivo**: [[{Path(mejor_tweet.get('file', '')).stem}]]
-"""
-    
-    if peor_tweet and peor_tweet != mejor_tweet:
-        contenido += f"""### 📉 Menor Engagement
-
-- **Fuente**: {peor_tweet.get('source', 'N/A')}
-- **Engagement**: {peor_tweet.get('engagement_score', 0)}
-- **ID**: [{peor_tweet.get('id', 'N/A')}](https://twitter.com/i/status/{peor_tweet.get('id', '')})
-"""
-    
-    # Insights automáticos
-    contenido += "\n## Insights\n\n"
-    
-    if por_fuente:
-        mejor_fuente = max(por_fuente.items(), key=lambda x: x[1]["engagement"] / x[1]["count"] if x[1]["count"] > 0 else 0)
-        contenido += f"- 🎯 **Mejor fuente**: {mejor_fuente[0]} (promedio {mejor_fuente[1]['engagement'] / mejor_fuente[1]['count'] if mejor_fuente[1]['count'] > 0 else 0:.1f})\n"
-    
-    if total_tweets > 0:
-        contenido += f"- 📈 **Productividad**: {total_tweets / 7:.1f} tweets/día\n"
-    
-    contenido += f"""\n## Acciones Recomendadas
-
-- [ ] Revisar tweets con bajo engagement
-- [ ] Identificar patrones en tweets exitosos
-- [ ] Planificar contenido para próxima semana
-"""
-    
-    # Guardar reporte
-    filepath = reports_dir / f"semana-{semana_str}.md"
-    
-    try:
-        filepath.write_text(contenido, encoding="utf-8")
-        print(f"  📊 Reporte generado: {filepath.name}")
-        return str(filepath)
-    except Exception as e:
-        print(f"  ⚠️ Error generando reporte: {e}")
-        return None
-
-
-def obtener_estadisticas_totales() -> dict:
-    """Obtiene estadísticas totales de todos los tweets.
-
-    Returns:
-        Diccionario con estadísticas generales.
-    """
-    tweets = listar_tweets_en_vault()
-    
-    if not tweets:
-        return {
-            "total_tweets": 0,
-            "engagement_total": 0,
-            "engagement_promedio": 0,
-            "por_fuente": {},
-            "mejor_tweet": None,
-        }
-    
-    total_engagement = sum(float(t.get("engagement_score", 0)) for t in tweets)
-    
-    por_fuente = {}
-    for tweet in tweets:
-        fuente = tweet.get("source", "unknown")
-        if fuente not in por_fuente:
-            por_fuente[fuente] = 0
-        por_fuente[fuente] += 1
-    
-    mejor = max(tweets, key=lambda t: float(t.get("engagement_score", 0)))
-    
-    return {
-        "total_tweets": len(tweets),
-        "engagement_total": total_engagement,
-        "engagement_promedio": total_engagement / len(tweets),
-        "por_fuente": por_fuente,
-        "mejor_tweet": mejor,
-    }

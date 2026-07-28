@@ -1,13 +1,14 @@
-"""Bot de GitHub Manual: genera tweet para un repo específico.
+"""Bot de GitHub Manual: genera borrador de tweet para un repo específico.
+
+Genera un borrador en Obsidian para que el usuario revise y publique
+manualmente cuando quiera.
 
 Uso: python main_github_manual.py user/repo
 
 Ejemplo: python main_github_manual.py facebook/react
 """
 
-import subprocess
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import requests
@@ -15,8 +16,7 @@ import requests
 import config
 from sources.github_client import get_readme_content, GITHUB_API
 from llm_client import generate_tweet
-from twitter_client import publicar_tweet
-from metrics_db import load_processed, is_processed, mark_as_processed
+from obsidian_vault import guardar_borrador
 
 PROMPT_FILE = "prompts/prompt_github.txt"
 
@@ -61,39 +61,8 @@ def obtener_info_repo(repo_name: str) -> dict:
     }
 
 
-def guardar_tweet_con_url(tweet_text: str, repo_id: str, repo_name: str, repo_url: str) -> str:
-    """Guarda el tweet y la URL en un archivo .txt.
-
-    Args:
-        tweet_text: Texto del tweet generado (sin URL).
-        repo_id: ID del repositorio.
-        repo_name: Nombre del repositorio.
-        repo_url: URL del repositorio.
-
-    Returns:
-        Ruta del archivo creado.
-    """
-    tweets_dir = Path("tweets")
-    tweets_dir.mkdir(exist_ok=True)
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    safe_name = repo_name.replace("/", "_").replace(" ", "_")[:30]
-    filename = tweets_dir / f"gh_{safe_name}_{timestamp}.txt"
-
-    contenido = (
-        f"ID: {repo_id}\n"
-        f"Repo: {repo_name}\n"
-        f"URL: {repo_url}\n"
-        f"{'─' * 40}\n"
-        f"{tweet_text}\n"
-    )
-
-    filename.write_text(contenido, encoding="utf-8")
-    return str(filename)
-
-
 def construir_mensaje_usuario(repo: dict) -> str:
-    """Construye el mensaje para el LLM (sin URL).
+    """Construye el mensaje para el LLM.
 
     Args:
         repo: Diccionario con datos del repositorio.
@@ -131,7 +100,7 @@ def main() -> None:
         sys.exit(1)
 
     print("━" * 50)
-    print("  GitHub Manual Bot")
+    print("  GitHub Manual Bot - Generador de Borradores")
     print("━" * 50)
     print(f"  Repo: {repo_name}")
 
@@ -145,15 +114,7 @@ def main() -> None:
     print(f"  ⭐ Stars: {repo['stars']}")
     print(f"  📝 {repo['description'][:80]}...")
 
-    # 2. Verificar si ya fue publicado
-    if is_processed(repo["id"]):
-        print(f"\n  ⚠️  Este repo ya fue publicado anteriormente (ID: {repo['id']})")
-        respuesta = input("  ¿Continuar de todos modos? (s/n): ").strip().lower()
-        if respuesta not in ("s", "si", "sí"):
-            print("  Cancelado.")
-            sys.exit(0)
-
-    # 3. Descargar README
+    # 2. Descargar README
     print("\n  📥 Descargando README...")
     readme = get_readme_content(repo["name"])
     if readme:
@@ -162,7 +123,7 @@ def main() -> None:
     else:
         print("  ⚠️  No se pudo descargar el README")
 
-    # 4. Generar tweet
+    # 3. Generar tweet
     print("\n  ✍️  Generando tweet...")
     try:
         mensaje = construir_mensaje_usuario(repo)
@@ -171,61 +132,40 @@ def main() -> None:
         print(f"  ❌ Error generando tweet: {e}")
         sys.exit(1)
 
-    # 5. Truncar si es necesario
-    if config.FORCE_280_CHAR_TWEET and len(tweet_text) > 280:
-        tweet_text = tweet_text[:277] + "..."
-
-    # 6. Mostrar tweet y preguntar si publicar
+    # 4. Mostrar tweet generado
     print(f"\n{'━' * 50}")
     print("  Tweet generado:")
     print(f"{'━' * 50}")
     print(tweet_text)
     print(f"{'━' * 50}")
 
-    respuesta = input("\n  ¿Publicar en Twitter? (s/n): ").strip().lower()
-    if respuesta not in ("s", "si", "sí"):
-        print("  Cancelado.")
-        # Guardar archivo sin publicar
-        filename = guardar_tweet_con_url(tweet_text, repo["id"], repo["name"], repo["html_url"])
-        print(f"  💾 Tweet guardado sin publicar: {filename}")
-        sys.exit(0)
+    # 5. Guardar como borrador en Obsidian
+    print("\n  💾 Guardando borrador en Obsidian...")
+    filepath = guardar_borrador(
+        texto=tweet_text,
+        source="github_manual",
+        titulo=repo["name"],
+        url=repo["html_url"],
+        repo_name=repo["name"],
+        repo_stars=repo["stars"],
+        item_id=repo["id"],
+        prompt_file=PROMPT_FILE,
+    )
 
-    # 7. Publicar en Twitter
-    try:
-        resultado = publicar_tweet(
-            texto=tweet_text,
-            source="github_manual",
-            item_id=repo["id"],
-            prompt_file=PROMPT_FILE,
-        )
-        print(f"  🐦 Publicado en Twitter (ID: {resultado['id']})")
-    except Exception as e:
-        print(f"  ❌ Error publicando en Twitter: {e}")
+    if filepath:
+        print(f"\n{'━' * 50}")
+        print(f"  ✅ Borrador guardado en Obsidian")
+        print(f"  📂 Archivo: {Path(filepath).name}")
+        print(f"\n  Próximos pasos:")
+        print(f"  1. Abre Obsidian y revisa el borrador")
+        print(f"  2. Edita el tweet si quieres")
+        print(f"  3. Mueve a 'listos' cuando esté listo")
+        print(f"  4. Copia y publica en Twitter manualmente")
+        print(f"{'━' * 50}")
+    else:
+        print("\n  ⚠️ No se pudo guardar en Obsidian")
+        print("  Verifica que OBSIDIAN_VAULT_PATH esté configurado en .env")
         sys.exit(1)
-
-    # 8. Guardar archivo y copiar URL al portapapeles
-    filename = guardar_tweet_con_url(tweet_text, repo["id"], repo["name"], repo["html_url"])
-    print(f"  💾 Guardado: {filename}")
-    
-    # Copiar URL al portapapeles automáticamente
-    try:
-        subprocess.run(
-            ["xclip", "-selection", "clipboard"],
-            input=repo["html_url"].encode(),
-            check=True,
-            capture_output=True,
-        )
-        print(f"  📎 URL copiada al portapapeles: {repo['html_url']}")
-    except FileNotFoundError:
-        print(f"  📎 URL para comentario (copia manual): {repo['html_url']}")
-    except Exception as e:
-        print(f"  📎 URL para comentario (copia manual): {repo['html_url']} [{e}]")
-
-    # 9. Estado ya se actualiza automáticamente en twitter_client
-
-    print(f"\n{'━' * 50}")
-    print(f"  ✅ Completado")
-    print(f"{'━' * 50}")
 
 
 if __name__ == "__main__":
