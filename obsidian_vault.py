@@ -23,6 +23,7 @@ MANUAL_FOLDER = "manual"
 BORRADORES = "borradores"
 LISTOS = "listos"
 PUBLICADOS = "publicados"
+ATTACHMENTS_FOLDER = "attachments"
 TEMPLATES_FOLDER = "Templates"
 CALENDAR_FOLDER = "Calendar"
 REPORTS_FOLDER = "Reports"
@@ -63,6 +64,53 @@ def _get_vault_path() -> Optional[Path]:
     return vault_path
 
 
+# ── Guardar Imágenes ──────────────────────────────────────────
+
+
+def guardar_imagen_vault(
+    image_bytes: bytes,
+    nombre_archivo: str,
+    source: str = "t2t",
+) -> Optional[str]:
+    """Guarda una imagen en la carpeta de attachments de la bóveda.
+
+    Args:
+        image_bytes: Bytes de la imagen PNG.
+        nombre_archivo: Nombre del archivo (sin extensión).
+        source: Fuente para determinar subcarpeta.
+
+    Returns:
+        Ruta relativa al vault de la imagen guardada, o None si falló.
+    """
+    vault_path = _get_vault_path()
+    if not vault_path:
+        return None
+
+    # Crear carpeta de attachments
+    attachments_dir = vault_path / ATTACHMENTS_FOLDER
+    attachments_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generar nombre seguro
+    safe_name = _sanitize_filename(nombre_archivo)
+    fecha = datetime.now().strftime("%Y-%m-%d")
+    filename = f"{fecha}_{safe_name}.png"
+    filepath = attachments_dir / filename
+
+    # Si ya existe, agregar sufijo
+    counter = 1
+    while filepath.exists():
+        filepath = attachments_dir / f"{fecha}_{safe_name}_{counter}.png"
+        counter += 1
+
+    try:
+        filepath.write_bytes(image_bytes)
+        # Retornar ruta relativa para usar en markdown
+        return f"{ATTACHMENTS_FOLDER}/{filename}"
+    except Exception as e:
+        print(f"  ⚠️ Error guardando imagen: {e}")
+        return None
+
+
 # ── Guardar Borradores ────────────────────────────────────────
 
 
@@ -77,6 +125,7 @@ def guardar_borrador(
     prompt_file: Optional[str] = None,
     template_estilo: Optional[str] = None,
     notas: Optional[str] = None,
+    imagen_path: Optional[str] = None,
 ) -> Optional[str]:
     """Guarda un tweet como borrador en la bóveda de Obsidian.
 
@@ -94,6 +143,7 @@ def guardar_borrador(
         prompt_file: Ruta del prompt usado.
         template_estilo: Estilo de gancho usado.
         notas: Notas adicionales.
+        imagen_path: Ruta relativa de la imagen en el vault.
 
     Returns:
         Ruta del archivo creado, o None si no se pudo guardar.
@@ -152,6 +202,8 @@ def guardar_borrador(
         contenido += f"prompt_file: {prompt_file}\n"
     if template_estilo:
         contenido += f"template: {template_estilo}\n"
+    if imagen_path:
+        contenido += f"imagen: {imagen_path}\n"
     
     contenido += "---\n\n"
     
@@ -160,6 +212,10 @@ def guardar_borrador(
         contenido += f"# {titulo}\n\n"
     elif repo_name:
         contenido += f"# {repo_name}\n\n"
+    
+    # Imagen (si existe)
+    if imagen_path:
+        contenido += f"![Tarjeta]({imagen_path})\n\n"
     
     # Tweet generado
     contenido += "## Tweet\n\n"

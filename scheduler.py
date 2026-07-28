@@ -56,14 +56,13 @@ HORARIOS_PUBLICACION = [
 _publicaciones_hoy: dict[str, bool] = {}
 
 # Ventanas de colecta de métricas (en minutos después de publicación)
-# Solo T+30min y T+24h para ahorrar costos de API
-VENTANAS_COLECTA = [
-    {"minutos": 30,    "label": "T+30min"},
-    {"minutos": 1440,  "label": "T+24h"},
-]
+# DESHABILITADO: La API gratuita de Twitter no permite leer métricas.
+# Para habilitar, necesitas tier Basic ($100/mes) o superior.
+VENTANAS_COLECTA = []
 
 # Cada cuánto revisar si hay tweets pendientes de métricas (en segundos)
-CHECK_INTERVAL = 300  # 5 minutos
+# DESHABILITADO por limitaciones de tier gratuito
+CHECK_INTERVAL = 86400  # 24 horas (efectivamente deshabilitado)
 
 # Flag para graceful shutdown
 running = True

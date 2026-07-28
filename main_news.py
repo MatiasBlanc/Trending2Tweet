@@ -18,6 +18,97 @@ from card_generator import generate_news_card
 
 PROMPT_FILE = "prompts/prompt_news.txt"
 
+# ── Filtro de temas tech ──────────────────────────────────────
+# Palabras clave que indican contenido tech/developer
+TECH_KEYWORDS = [
+    # Lenguajes
+    "python", "javascript", "typescript", "rust", "go", "golang", "java",
+    "c++", "cpp", "swift", "kotlin", "ruby", "php", "scala", "elixir",
+    "haskell", "clojure", "zig", "nim", "julia", "r", "matlab",
+    # Frameworks/Libs
+    "react", "vue", "angular", "svelte", "nextjs", "next.js", "nuxt",
+    "django", "flask", "fastapi", "express", "nestjs", "spring", "rails",
+    "laravel", "symfony", "astro", "remix", "solidjs", "qwik",
+    # AI/ML
+    "ai", "ml", "machine learning", "deep learning", "llm", "gpt",
+    "openai", "anthropic", "claude", "gemini", "mistral", "llama",
+    "transformer", "neural", "model", "training", "inference", "rag",
+    "fine-tuning", "finetuning", "embedding", "vector", "diffusion",
+    "stable diffusion", "midjourney", "dall-e", "chatgpt", "copilot",
+    # DevOps/Infra
+    "docker", "kubernetes", "k8s", "terraform", "ansible", "aws",
+    "gcp", "azure", "cloud", "serverless", "lambda", "ci/cd",
+    "github", "gitlab", "bitbucket", "jenkins", "circleci",
+    # Database
+    "postgres", "postgresql", "mysql", "sqlite", "mongodb", "redis",
+    "elasticsearch", "supabase", "firebase", "planetscale", "neon",
+    "turso", "drizzle", "prisma", "typeorm", "sequelize",
+    # Web3/Blockchain
+    "blockchain", "ethereum", "solana", "web3", "smart contract",
+    "defi", "nft", "crypto", "bitcoin",
+    # Herramientas Dev
+    "vscode", "neovim", "vim", "emacs", "jetbrains", "intellij",
+    "figma", "postman", "insomnia", "cursor", "windsurf", "copilot",
+    "git", "terminal", "shell", "bash", "zsh", "tmux",
+    # Conceptos Tech
+    "api", "rest", "graphql", "grpc", "websocket", "microservice",
+    "monolith", "monorepo", "compiler", "interpreter", "parser",
+    "ast", "regex", "algorithm", "data structure", "open source",
+    "open-source", "oss", "benchmark", "performance", "memory leak",
+    "concurrency", "parallelism", "async", "coroutine", "fiber",
+    "wasm", "webassembly", "pwa", "spa", "ssr", "ssg", "csr",
+    # Companies Tech
+    "apple", "google", "microsoft", "meta", "facebook", "amazon",
+    "netflix", "uber", "airbnb", "stripe", "shopify", "vercel",
+    "cloudflare", "datadog", "sentry", "grafana", "prometheus",
+    "tesla", "spacex", "nvidia", "amd", "intel", "arm",
+    # Otros
+    "linux", "unix", "windows", "macos", "ios", "android",
+    "browser", "chrome", "firefox", "safari", "edge",
+    "npm", "yarn", "pnpm", "pip", "cargo", "brew",
+    "ide", "editor", "terminal", "cli", "gui", "tui",
+]
+
+# Palabras clave que indican contenido NO-tech (excluir)
+EXCLUDE_KEYWORDS = [
+    "earthquake", "terremoto", "tsunami", "hurricane", "tornado",
+    "war", "guerra", "conflict", "politics", "political", "election",
+    "president", "congress", "senate", "democrat", "republican",
+    "celebrity", "famous", "movie", "film", "music", "album",
+    "sport", "football", "soccer", "basketball", "tennis", "nba",
+    "nfl", "fifa", "olympics", "world cup",
+    "recipe", "cooking", "food", "restaurant", "diet",
+    "fashion", "clothing", "style", "beauty", "makeup",
+    "travel", "tourism", "hotel", "vacation", "flight",
+    "real estate", "housing", "mortgage", "rent",
+    "crypto trading", "stock market", "wall street", "investment",
+]
+
+
+def es_noticia_tech(titulo: str) -> bool:
+    """Verifica si una noticia es relevante para el público tech/developer.
+
+    Args:
+        titulo: Título de la noticia.
+
+    Returns:
+        True si la noticia es tech, False en caso contrario.
+    """
+    titulo_lower = titulo.lower()
+    
+    # Primero verificar exclusiones
+    for keyword in EXCLUDE_KEYWORDS:
+        if keyword in titulo_lower:
+            return False
+    
+    # Luego verificar inclusiones
+    for keyword in TECH_KEYWORDS:
+        if keyword in titulo_lower:
+            return True
+    
+    # Si no matchea ningún keyword tech, excluir
+    return False
+
 # Estilos de gancho para variar el tono de los tweets
 # Optimizados para maximizar reply velocity en los primeros 30 minutos
 ESTILOS_GANCHO = [
@@ -119,6 +210,11 @@ def main() -> None:
             print(f"\n  ⏭  Score bajo ({story['score']}): {story['title'][:60]}...")
             continue
 
+        # Filtrar por tema tech (excluir noticias no-tech)
+        if not es_noticia_tech(story["title"]):
+            print(f"\n  ⏭  No es tech: {story['title'][:60]}...")
+            continue
+
         print(f"\n  📰 Nueva noticia: {story['title'][:60]}...")
         print(f"     Puntuación: {story['score']} | Comentarios: {story['comments']}")
 
@@ -170,10 +266,6 @@ def main() -> None:
         filename = guardar_tweet_con_url(tweet_text, story["id"], story["title"], story["url"])
         print(f"  💾 Guardado: {filename}")
         print(f"  📎 URL para comentario: {story['url']}")
-
-        # Persistir estado (ya se hace automáticamente en twitter_client)
-        # processed.add(story["id"])
-        # save_processed(processed)
 
         print(f"\n{'━' * 50}")
         print(f"  ✅ Completado: 1 tweet publicado")

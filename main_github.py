@@ -13,7 +13,8 @@ import config
 from sources.github_client import get_trending_repos, get_readme_content
 from llm_client import generate_tweet
 from metrics_db import load_processed, is_processed
-from obsidian_vault import guardar_borrador
+from obsidian_vault import guardar_borrador, guardar_imagen_vault
+from card_generator import generate_github_card
 
 PROMPT_FILE = "prompts/prompt_github.txt"
 
@@ -93,6 +94,27 @@ def main() -> None:
         if config.FORCE_280_CHAR_TWEET and len(tweet_text) > 280:
             tweet_text = tweet_text[:277] + "..."
 
+        # Generar tarjeta visual
+        imagen_path = None
+        try:
+            image_bytes = generate_github_card(
+                repo_name=repo["name"],
+                description=repo["description"],
+                language=repo["language"],
+                stars=repo["stars"],
+            )
+            if image_bytes:
+                # Guardar imagen en el vault
+                imagen_path = guardar_imagen_vault(
+                    image_bytes=image_bytes,
+                    nombre_archivo=repo["name"].split("/")[-1],
+                    source="github",
+                )
+                if imagen_path:
+                    print(f"  🖼️  Tarjeta visual generada")
+        except Exception as e:
+            print(f"  ⚠️  No se pudo generar tarjeta: {e}")
+
         # Guardar como borrador en Obsidian
         filepath = guardar_borrador(
             texto=tweet_text,
@@ -103,6 +125,7 @@ def main() -> None:
             repo_stars=repo["stars"],
             item_id=repo["id"],
             prompt_file=PROMPT_FILE,
+            imagen_path=imagen_path,
         )
 
         if filepath:
