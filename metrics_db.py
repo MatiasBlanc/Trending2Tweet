@@ -261,6 +261,63 @@ def obtener_todos_tweets(order_by: str = "published_at", limit: int = 100) -> li
     return [dict(row) for row in rows]
 
 
+def obtener_tweet(tweet_id: str) -> Optional[dict]:
+    """Obtiene un tweet por su ID.
+
+    Args:
+        tweet_id: ID del tweet en Twitter.
+
+    Returns:
+        Diccionario con los datos del tweet, o None si no existe.
+    """
+    init_db()
+    conn = _get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM tweets WHERE tweet_id = ?", (tweet_id,))
+    row = cursor.fetchone()
+    conn.close()
+
+    return dict(row) if row else None
+
+
+def obtener_resumen_global() -> dict:
+    """Obtiene un resumen agregado de todos los tweets.
+
+    Returns:
+        Diccionario con totales, promedios y el tweet con mayor engagement.
+    """
+    init_db()
+    conn = _get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT
+            COUNT(*) as total_tweets,
+            COALESCE(SUM(likes_latest), 0) as total_likes,
+            COALESCE(SUM(retweets_latest), 0) as total_retweets,
+            COALESCE(SUM(replies_latest), 0) as total_replies,
+            COALESCE(SUM(impressions_latest), 0) as total_impressions,
+            COALESCE(SUM(bookmarks_latest), 0) as total_bookmarks,
+            COALESCE(ROUND(AVG(engagement_score), 2), 0) as avg_engagement,
+            COALESCE(MAX(engagement_score), 0) as max_engagement
+        FROM tweets
+    """)
+    resumen = dict(cursor.fetchone())
+
+    cursor.execute("""
+        SELECT tweet_id, texto, engagement_score, source, likes_latest
+        FROM tweets
+        ORDER BY engagement_score DESC
+        LIMIT 1
+    """)
+    mejor = cursor.fetchone()
+    resumen["mejor_tweet"] = dict(mejor) if mejor else None
+
+    conn.close()
+    return resumen
+
+
 def obtener_historial_tweet(tweet_id: str) -> list[dict]:
     """Obtiene el historial de métricas de un tweet.
 
