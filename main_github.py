@@ -13,6 +13,7 @@ from sources.github_client import get_trending_repos, get_readme_content
 from llm_client import generate_tweet
 from twitter_client import publicar_tweet
 from metrics_db import load_processed, is_processed
+from card_generator import generate_github_card
 
 PROMPT_FILE = "prompts/prompt_github.txt"
 
@@ -122,6 +123,20 @@ def main() -> None:
         if config.FORCE_280_CHAR_TWEET and len(tweet_text) > 280:
             tweet_text = tweet_text[:277] + "..."
 
+        # Generar tarjeta visual
+        image_bytes = None
+        try:
+            image_bytes = generate_github_card(
+                repo_name=repo["name"],
+                description=repo["description"],
+                language=repo["language"],
+                stars=repo["stars"],
+            )
+            if image_bytes:
+                print(f"  🖼️  Tarjeta visual generada")
+        except Exception as e:
+            print(f"  ⚠️  No se pudo generar tarjeta: {e}")
+
         # Publicar en Twitter
         try:
             resultado = publicar_tweet(
@@ -129,8 +144,10 @@ def main() -> None:
                 source="github",
                 item_id=repo["id"],
                 prompt_file=PROMPT_FILE,
+                image_bytes=image_bytes,
             )
-            print(f"  🐦 Publicado en Twitter (ID: {resultado['id']})")
+            media_tag = "🖼️" if resultado.get("has_media") else ""
+            print(f"  🐦 Publicado en Twitter {media_tag} (ID: {resultado['id']})")
         except Exception as e:
             print(f"  ❌ Error publicando en Twitter: {e}")
             sys.exit(1)

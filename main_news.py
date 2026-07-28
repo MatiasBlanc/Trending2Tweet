@@ -14,6 +14,7 @@ from sources.hacker_news_client import get_top_stories, get_best_stories
 from llm_client import generate_tweet
 from twitter_client import publicar_tweet
 from metrics_db import load_processed, is_processed
+from card_generator import generate_news_card
 
 PROMPT_FILE = "prompts/prompt_news.txt"
 
@@ -135,6 +136,20 @@ def main() -> None:
         if config.FORCE_280_CHAR_TWEET and len(tweet_text) > 280:
             tweet_text = tweet_text[:277] + "..."
 
+        # Generar tarjeta visual
+        image_bytes = None
+        try:
+            image_bytes = generate_news_card(
+                title=story["title"],
+                score=story["score"],
+                comments=story["comments"],
+                author=story.get("author", ""),
+            )
+            if image_bytes:
+                print(f"  🖼️  Tarjeta visual generada")
+        except Exception as e:
+            print(f"  ⚠️  No se pudo generar tarjeta: {e}")
+
         # Publicar en Twitter
         try:
             resultado = publicar_tweet(
@@ -142,9 +157,11 @@ def main() -> None:
                 source="news",
                 item_id=story["id"],
                 prompt_file=PROMPT_FILE,
-                template_estilo=estilo_gancho[:100],  # Truncar para que quepa en DB
+                template_estilo=estilo_gancho[:100],
+                image_bytes=image_bytes,
             )
-            print(f"  🐦 Publicado en Twitter (ID: {resultado['id']})")
+            media_tag = "🖼️" if resultado.get("has_media") else ""
+            print(f"  🐦 Publicado en Twitter {media_tag} (ID: {resultado['id']})")
         except Exception as e:
             print(f"  ❌ Error publicando en Twitter: {e}")
             sys.exit(1)
