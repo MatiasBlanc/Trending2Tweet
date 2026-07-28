@@ -18,6 +18,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+# Cargar variables de entorno del archivo .env (solo en local)
+load_dotenv()
 
 OBSIDIAN_VAULT_PATH = os.getenv("OBSIDIAN_VAULT_PATH", "")
 OBSIDIAN_REPO_URL = os.getenv("OBSIDIAN_REPO_URL", "")
