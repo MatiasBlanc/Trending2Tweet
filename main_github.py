@@ -65,10 +65,16 @@ def main() -> None:
 
     print(f"  Repos encontrados: {len(repos)}")
 
-    # 3. Generar borradores para repos nuevos
+    # 3. Generar borradores para repos nuevos (máximo 2 por ejecución)
     borradores_creados = 0
+    MAX_BORRADORES = 2
     
     for repo in repos:
+        # Limitar a 2 borradores por ejecución
+        if borradores_creados >= MAX_BORRADORES:
+            print(f"\n  ⏸  Límite de {MAX_BORRADORES} borradores alcanzado")
+            break
+        
         # Verificar si ya fue procesado
         if is_processed(repo["id"]):
             print(f"\n  ⏭  Ya procesado: {repo['name']}")
