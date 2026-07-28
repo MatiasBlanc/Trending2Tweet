@@ -31,12 +31,23 @@ def sync_pull() -> bool:
     
     vault_path = Path(OBSIDIAN_VAULT_PATH)
     
+    # Construir URL con token si está disponible
+    repo_url = OBSIDIAN_REPO_URL
+    github_token = os.getenv("GITHUB_TOKEN", "")
+    if github_token and repo_url.startswith("git@"):
+        # Convertir SSH a HTTPS con token
+        # git@github.com:user/repo.git -> https://token@github.com/user/repo.git
+        repo_url = repo_url.replace("git@github.com:", f"https://{github_token}@github.com/")
+    elif github_token and "github.com" in repo_url and "@" not in repo_url:
+        # Agregar token a URL HTTPS
+        repo_url = repo_url.replace("https://github.com/", f"https://{github_token}@github.com/")
+    
     # Si el directorio no existe, clonar el repo
     if not vault_path.exists():
         print(f"📥 Clonando bóveda de Obsidian...")
         vault_path.parent.mkdir(parents=True, exist_ok=True)
         result = subprocess.run(
-            ["git", "clone", OBSIDIAN_REPO_URL, str(vault_path)],
+            ["git", "clone", repo_url, str(vault_path)],
             capture_output=True,
             text=True,
         )
@@ -72,6 +83,22 @@ def sync_push(mensaje: str = "update: sincronizar bóveda") -> bool:
     
     if not vault_path.exists():
         return False
+    
+    # Configurar URL remota con token si está disponible
+    github_token = os.getenv("GITHUB_TOKEN", "")
+    if github_token and OBSIDIAN_REPO_URL:
+        repo_url = OBSIDIAN_REPO_URL
+        if repo_url.startswith("git@"):
+            repo_url = repo_url.replace("git@github.com:", f"https://{github_token}@github.com/")
+        elif "github.com" in repo_url and "@" not in repo_url:
+            repo_url = repo_url.replace("https://github.com/", f"https://{github_token}@github.com/")
+        
+        # Actualizar URL remota
+        subprocess.run(
+            ["git", "remote", "set-url", "origin", repo_url],
+            cwd=str(vault_path),
+            capture_output=True,
+        )
     
     print("📤 Subiendo cambios a la bóveda...")
     
