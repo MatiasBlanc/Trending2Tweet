@@ -316,33 +316,43 @@ def main() -> None:
     """Ejecuta el scheduler en loop continuo."""
     global running
 
-    # Registrar handlers de señales
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
+    try:
+        # Registrar handlers de señales
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
 
-    # Info de timezone
-    tz_info = f"UTC{_TZ_OFFSET:+d}" if _TZ_OFFSET != 0 else "UTC"
+        # Info de timezone
+        tz_info = f"UTC{_TZ_OFFSET:+d}" if _TZ_OFFSET != 0 else "UTC"
 
-    # Mostrar horarios configurados
-    horarios_str = ", ".join(
-        f"{h['label']} a las {h['hora']:02d}:{h['minuto']:02d} ({tz_info}) "
-        f"→ {h['hora_utc']:02d}:{h['minuto_utc']:02d} UTC"
-        for h in HORARIOS_PUBLICACION
-    )
+        # Mostrar horarios configurados
+        horarios_str = ", ".join(
+            f"{h['label']} a las {h['hora']:02d}:{h['minuto']:02d} ({tz_info}) "
+            f"→ {h['hora_utc']:02d}:{h['minuto_utc']:02d} UTC"
+            for h in HORARIOS_PUBLICACION
+        )
 
-    print("━" * 60)
-    print("  🔄 Scheduler iniciado")
-    print(f"  🌍 Timezone: {tz_info} (offset={_TZ_OFFSET:+d}h)")
-    print(f"  📰 Publicación: {horarios_str}")
-    print(f"  📊 Métricas: cada {CHECK_INTERVAL // 60} minutos")
-    print(f"  📊 Ventanas: {', '.join(v['label'] for v in VENTANAS_COLECTA)}")
-    print(f"  ⏰ Hora actual UTC: {_now_utc().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("━" * 60)
+        print("━" * 60)
+        print("  🔄 Scheduler iniciado")
+        print(f"  🌍 Timezone: {tz_info} (offset={_TZ_OFFSET:+d}h)")
+        print(f"  📰 Publicación: {horarios_str}")
+        print(f"  📊 Métricas: cada {CHECK_INTERVAL // 60} minutos")
+        print(f"  📊 Ventanas: {', '.join(v['label'] for v in VENTANAS_COLECTA)}")
+        print(f"  ⏰ Hora actual UTC: {_now_utc().strftime('%Y-%m-%d %H:%M:%S')}")
+        print("━" * 60)
 
-    init_db()
+        init_db()
+        print("  ✅ Base de datos inicializada")
+
+    except Exception as e:
+        print(f"  ❌ Error fatal en inicialización: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
     # Contador para alternar entre chequear publicación y métricas
     ciclo = 0
+
+    print("  ✅ Scheduler listo para procesar")
 
     while running:
         try:
@@ -356,13 +366,22 @@ def main() -> None:
                 if resultado["pendientes"] == 0:
                     print(f"  💤 Sin tweets pendientes de métricas.")
 
+        except KeyboardInterrupt:
+            print("\n  ⚠️  Interrumpido por usuario")
+            running = False
         except Exception as e:
             print(f"  ❌ Error en scheduler: {e}")
             import traceback
             traceback.print_exc()
+            # No salir del loop, intentar continuar
 
         # Esperar 1 minuto
-        time.sleep(60)
+        try:
+            time.sleep(60)
+        except KeyboardInterrupt:
+            print("\n  ⚠️  Interrumpido durante espera")
+            running = False
+
         ciclo += 1
 
     print("  👋 Scheduler detenido.")
