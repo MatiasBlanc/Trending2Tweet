@@ -4,8 +4,12 @@
 # Tweets generados
 tweets/
 
-# Metrics database
+# Metrics database (persistida en Railway Volume /data/)
 metrics.db
+
+# Logs locales
+logs/
+*.log
 
 # Python
 __pycache__/
@@ -27,3 +31,6 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Railway / Heroku leftovers
+*.sh.bak
