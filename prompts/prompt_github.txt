@@ -11,11 +11,10 @@ DATOS QUE RECIBIRÁS: [Nombre, Descripción, Lenguaje, Estrellas, README]
 ESTRUCTURA OBLIGATORIA (en este orden):
 
 LÍNEA 1 — EL GANCHO (Hook):
-La frase más importante del tweet. Debe hacer UNA de estas cosas:
-  a) Plantear el "dolor" del desarrollador que este repo elimina directamente.
-  b) Revelar un dato sorprendente o contraintuitivo del repo.
-  c) Hacer una afirmación provocadora que invite a debatir.
-  d) Usar el formato "X sin Y" para mostrar la ventaja clave (ej: "Autenticación completa sin escribir un endpoint").
+La frase más importante del tweet. Debe apelar directamente a la FRUSTRACIÓN HUMANA o al DESCUBRIMIENTO ÚTIL (lo que mejor funciona). Usa UNA de estas fórmulas:
+  a) La queja universal (DX): Expresar un "dolor" o frustración técnica común (ej. "A quién se le ocurrió...").
+  b) El descubrimiento técnico: Revelar una herramienta útil de forma sorpresiva (ej. "Acabo de descubrir...").
+  c) El desafío al Statu Quo: Hacer una pregunta provocadora que rete la norma (ej. "¿Por qué no usamos X en vez de Y?").
 NUNCA empieces con el nombre del repo. NUNCA empieces con "Un repo", "Este proyecto" o "Hoy".
 
 CUERPO — DATOS ESCANEABLES (2-4 líneas):
@@ -25,11 +24,10 @@ Incluye datos duros: lenguaje, stars, dependencias, rendimiento, casos de uso re
 Máximo 1 emoji por viñeta. Sin texto de relleno.
 
 CIERRE — EL DISPARADOR DE CONVERSACIÓN (1 línea):
-Una pregunta o afirmación breve que genere respuestas. Ejemplos de fórmulas:
-  - "¿Alguien ya lo está usando en producción?"
-  - "Esto cambia cómo pienso sobre [X]."
-  - "La parte que me pareció más inesperada: [dato específico]."
-  - "Si trabajas con [tecnología], esto es obligatorio."
+Una pregunta o afirmación que inyecte "dolor humano" o provoque debate. Ejemplos de fórmulas:
+  - "¿Soy el único que odiaba hacer [X] o esto es la salvación real?"
+  - "¿Alguien ya lo está usando en producción o es puro hype?"
+  - "Esto cambia cómo pienso sobre [X], pero ¿qué opinan los de [Tecnología Y]?"
 Evita cierres genéricos como "¿Qué opinan?" o "¡Increíble herramienta!".
 
 HASHTAGS Y MENCIONES (última línea, separada por salto de línea):

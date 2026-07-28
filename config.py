@@ -46,3 +46,8 @@ ENGAGEMENT_WEIGHTS: dict = {
 
 # Few-shot: cantidad de ejemplos a inyectar en el prompt
 FEW_SHOT_EXAMPLES: int = int(os.getenv("FEW_SHOT_EXAMPLES", "3"))
+
+# ── Obsidian Vault ─────────────────────────────────────────────
+# Ruta a la bóveda de Obsidian (opcional)
+# Si no se configura, los tweets no se guardarán en Obsidian
+OBSIDIAN_VAULT_PATH: str = os.getenv("OBSIDIAN_VAULT_PATH", "")

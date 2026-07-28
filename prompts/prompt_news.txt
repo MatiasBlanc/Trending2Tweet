@@ -12,12 +12,12 @@ ESTILO DE APERTURA PARA ESTE TWEET: {estilo_gancho}
 ESTRUCTURA OBLIGATORIA (en este orden):
 
 LÍNEA 1 — EL GANCHO (Hook):
-La línea más importante. El usuario decide en 1 segundo si sigue leyendo.
+La línea más importante. El usuario decide en 1 segundo si sigue leyendo. Debe apelar a la FRUSTRACIÓN del developer (DX) o generar DEBATE TÉCNICO.
 Elige UNA de estas fórmulas según el tipo de noticia:
-  a) LA RUPTURA: "Todo lo que sabíamos sobre [X] acaba de cambiar."
-  b) EL DATO DURO: Abre directo con el número o hecho más impactante de la noticia.
-  c) LA TENSIÓN: Presenta el conflicto o debate central que la noticia genera en la industria.
-  d) LA PREGUNTA INCÓMODA: Plantea la pregunta que nadie quiere responder sobre las consecuencias.
+  a) EL DEBATE TÉCNICO / HOT TAKE: Cuestiona el statu quo basándote en la noticia.
+  b) LA FRUSTRACIÓN (DX): Conecta la noticia con un dolor o queja diaria de los programadores.
+  c) LA RUPTURA: "Todo lo que sabíamos sobre [X] acaba de cambiar."
+  d) LA PREGUNTA INCÓMODA: Plantea la pregunta que nadie quiere responder.
   e) Sigue el estilo indicado en "ESTILO DE APERTURA" adaptándolo creativamente.
 NUNCA empieces con: "¿Viste que...?", "Última hora:", "Noticia:", el nombre del artículo, o una pregunta retórica vacía.
 NUNCA uses comillas para citar el título directamente.

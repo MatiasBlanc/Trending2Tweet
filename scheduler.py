@@ -20,6 +20,7 @@ from metrics_db import (
     _get_connection,
 )
 from metrics_collector import crear_cliente, obtener_metricas_tweet
+from obsidian_vault import actualizar_metricas_en_vault
 
 # Ruta base del proyecto
 BASE_DIR = Path(__file__).parent
@@ -209,6 +210,19 @@ def ejecutar_colecta() -> dict:
                 impressions=metricas["impressions"],
                 bookmarks=metricas["bookmarks"],
             )
+
+            # Actualizar métricas en Obsidian
+            try:
+                actualizar_metricas_en_vault(
+                    tweet_id=tweet_id,
+                    likes=metricas["likes"],
+                    retweets=metricas["retweets"],
+                    replies=metricas["replies"],
+                    impressions=metricas["impressions"],
+                    bookmarks=metricas["bookmarks"],
+                )
+            except Exception as e:
+                print(f"  ⚠️ Error actualizando Obsidian: {e}")
 
             print(f"  ✅ [{ventana}] {tweet_id}: "
                   f"❤️ {metricas['likes']} "

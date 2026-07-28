@@ -6,12 +6,14 @@ luego la API v2 (tweepy.Client) para publicar el tweet con media_ids.
 
 import os
 import tempfile
+from datetime import datetime
 from typing import Optional
 
 import tweepy
 
 import config
 from metrics_db import registrar_tweet
+from obsidian_vault import guardar_tweet_en_vault
 
 
 def _crear_cliente_v2() -> tweepy.Client:
@@ -128,6 +130,20 @@ def publicar_tweet(
         )
     except Exception as e:
         print(f"  ⚠️ No se pudo registrar en metrics DB: {e}")
+
+    # Guardar en bóveda de Obsidian
+    try:
+        guardar_tweet_en_vault(
+            tweet_id=tweet_id,
+            texto=texto,
+            source=source,
+            item_id=item_id,
+            published_at=datetime.now().isoformat(),
+            prompt_file=prompt_file,
+            template_estilo=template_estilo,
+        )
+    except Exception as e:
+        print(f"  ⚠️ No se pudo guardar en Obsidian: {e}")
 
     return {"id": tweet_id, "text": texto, "has_media": media_id is not None}
 
