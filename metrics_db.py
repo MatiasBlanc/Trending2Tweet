@@ -10,7 +10,14 @@ import config
 DB_PATH = Path(config.METRICS_DB_PATH)
 
 # Crear directorio padre si no existe (para Railway Volumes)
-DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+# Solo intentar crear si el directorio padre no es la raíz (/)
+# ya que los volúmenes de Railway se montan automáticamente
+_parent = DB_PATH.parent
+if not _parent.exists() and _parent != Path('/'):
+    try:
+        _parent.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        pass  # El volumen se montará automáticamente en Railway
 
 
 def _get_connection() -> sqlite3.Connection:
