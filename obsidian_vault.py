@@ -10,8 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-# Ruta de la bóveda de Obsidian (configurable por variable de entorno)
-OBSIDIAN_VAULT_PATH = os.getenv("OBSIDIAN_VAULT_PATH", "")
+import config
 
 # Nombre de la carpeta dentro de la bóveda para los tweets
 TWEETS_FOLDER = "Tweets"
@@ -118,10 +117,10 @@ def guardar_tweet_en_vault(
         Ruta del archivo creado, o None si no se pudo guardar.
     """
     # Verificar que la bóveda esté configurada
-    if not OBSIDIAN_VAULT_PATH:
+    if not config.OBSIDIAN_VAULT_PATH:
         return None
     
-    vault_path = Path(OBSIDIAN_VAULT_PATH)
+    vault_path = Path(config.OBSIDIAN_VAULT_PATH)
     
     # Verificar que la bóveda existe
     if not vault_path.exists():
@@ -228,10 +227,10 @@ def actualizar_metricas_en_vault(
     Returns:
         True si se actualizó correctamente.
     """
-    if not OBSIDIAN_VAULT_PATH:
+    if not config.OBSIDIAN_VAULT_PATH:
         return False
     
-    vault_path = Path(OBSIDIAN_VAULT_PATH)
+    vault_path = Path(config.OBSIDIAN_VAULT_PATH)
     
     if not vault_path.exists():
         return False
@@ -298,10 +297,10 @@ def listar_tweets_en_vault(source: Optional[str] = None) -> list[dict]:
     Returns:
         Lista de diccionarios con información de cada tweet.
     """
-    if not OBSIDIAN_VAULT_PATH:
+    if not config.OBSIDIAN_VAULT_PATH:
         return []
     
-    vault_path = Path(OBSIDIAN_VAULT_PATH)
+    vault_path = Path(config.OBSIDIAN_VAULT_PATH)
     tweets_dir = vault_path / TWEETS_FOLDER
     
     if not tweets_dir.exists():
