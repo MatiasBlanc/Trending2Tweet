@@ -55,11 +55,10 @@ HORARIOS_PUBLICACION = [
 _publicaciones_hoy: dict[str, bool] = {}
 
 # Ventanas de colecta de métricas (en minutos después de publicación)
+# Solo T+30min y T+24h para ahorrar costos de API
 VENTANAS_COLECTA = [
     {"minutos": 30,    "label": "T+30min"},
-    {"minutos": 120,   "label": "T+2h"},
     {"minutos": 1440,  "label": "T+24h"},
-    {"minutos": 10080, "label": "T+7d"},
 ]
 
 # Cada cuánto revisar si hay tweets pendientes de métricas (en segundos)
