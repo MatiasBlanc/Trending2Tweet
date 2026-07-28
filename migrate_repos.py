@@ -3,6 +3,10 @@
 Ejecutar una sola vez en Railway para evitar repetir repos.
 """
 
+import os
+# Establecer ruta de DB antes de importar metrics_db
+os.environ.setdefault("METRICS_DB_PATH", "/data/metrics.db")
+
 from metrics_db import init_db, registrar_tweet, is_processed
 
 # Repos que ya fueron publicados en Twitter
