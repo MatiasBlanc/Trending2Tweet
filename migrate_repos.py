@@ -1,11 +1,21 @@
 """Script para marcar repos ya publicados como procesados.
 
-Ejecutar una sola vez en Railway para evitar repetir repos.
+Ejecutar una sola vez para evitar repetir repos.
 """
 
 import os
-# Establecer ruta de DB antes de importar metrics_db
-os.environ.setdefault("METRICS_DB_PATH", "/data/metrics.db")
+import sys
+from pathlib import Path
+
+# Intentar usar la ruta de Railway, si no existe usar local
+DB_PATH = os.getenv("METRICS_DB_PATH", "/data/metrics.db")
+if not Path(DB_PATH).parent.exists():
+    DB_PATH = "metrics.db"
+    print(f"  ℹ️  Usando DB local: {DB_PATH}")
+else:
+    print(f"  ℹ️  Usando DB de Railway: {DB_PATH}")
+
+os.environ["METRICS_DB_PATH"] = DB_PATH
 
 from metrics_db import init_db, registrar_tweet, is_processed
 

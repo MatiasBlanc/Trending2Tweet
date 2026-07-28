@@ -158,14 +158,21 @@ def main():
     # 1. Pull antes de ejecutar
     sync_pull()
     
-    # 2. Ejecutar el comando
+    # 2. Ejecutar migración de repos si es necesario
+    try:
+        from migrate_repos import main as migrate_repos
+        migrate_repos()
+    except Exception as e:
+        print(f"⚠️  Migración de repos: {e}")
+    
+    # 3. Ejecutar el comando
     print(f"\n{'━' * 50}")
     print(f"  Ejecutando: {' '.join(sys.argv[1:])}")
     print(f"{'━' * 50}\n")
     
     result = subprocess.run(sys.argv[1:])
     
-    # 3. Push después de ejecutar
+    # 4. Push después de ejecutar
     print(f"\n{'━' * 50}")
     print(f"  Sincronizando bóveda...")
     print(f"{'━' * 50}")
