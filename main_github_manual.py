@@ -8,6 +8,7 @@ Uso: python main_github_manual.py user/repo
 Ejemplo: python main_github_manual.py facebook/react
 """
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -16,6 +17,7 @@ import requests
 import config
 from sources.github_client import get_readme_content, GITHUB_API
 from llm_client import generate_tweet
+from metrics_db import registrar_tweet, is_processed
 from obsidian_vault import guardar_borrador, guardar_imagen_vault
 from card_generator import generate_github_card
 
@@ -60,6 +62,64 @@ def obtener_info_repo(repo_name: str) -> dict:
         "stars": data["stargazers_count"],
         "html_url": data["html_url"],
     }
+
+
+def registrar_en_railway(item_id: str, repo_name: str) -> None:
+    """Registra el repo en la base de datos de Railway.
+
+    Usa railway run para ejecutar un comando en el contexto de Railway
+    donde está el Volume con la base de datos.
+
+    Args:
+        item_id: ID del repositorio (ej: gh_123456).
+        repo_name: Nombre del repositorio.
+    """
+    # Primero registrar localmente
+    try:
+        from metrics_db import init_db
+        init_db()
+        if not is_processed(item_id):
+            registrar_tweet(
+                tweet_id=f"gh_manual_{item_id.replace('gh_', '')}",
+                texto=repo_name,
+                source="github_manual",
+                item_id=item_id,
+            )
+            print(f"  ✅ Registrado en DB local: {item_id}")
+        else:
+            print(f"  ⏭  Ya existe en DB local: {item_id}")
+    except Exception as e:
+        print(f"  ⚠️  DB local: {e}")
+
+    # Luego registrar en Railway
+    try:
+        cmd = [
+            "railway", "run",
+            "python", "-c",
+            f"""
+import os
+os.environ['METRICS_DB_PATH'] = '/data/metrics.db'
+from metrics_db import init_db, registrar_tweet, is_processed
+init_db()
+if not is_processed('{item_id}'):
+    registrar_tweet('gh_manual_{item_id.replace("gh_", "")}', '{repo_name}', 'github_manual', '{item_id}')
+    print('Registrado en Railway')
+else:
+    print('Ya existe en Railway')
+"""
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        if result.returncode == 0:
+            # Extraer mensaje del output
+            for line in result.stdout.split("\n"):
+                if "Registrado" in line or "Ya existe" in line:
+                    print(f"  🚂 {line.strip()}")
+        else:
+            print(f"  ⚠️  Railway: {result.stderr[:100]}")
+    except subprocess.TimeoutExpired:
+        print("  ⚠️  Railway: timeout")
+    except Exception as e:
+        print(f"  ⚠️  Railway: {e}")
 
 
 def construir_mensaje_usuario(repo: dict) -> str:
@@ -180,6 +240,11 @@ def main() -> None:
         print(f"\n{'━' * 50}")
         print(f"  ✅ Borrador guardado en Obsidian")
         print(f"  📂 Archivo: {Path(filepath).name}")
+
+        # Registrar en DB local y Railway
+        print("\n  📝 Registrando en bases de datos...")
+        registrar_en_railway(repo["id"], repo["name"])
+
         print(f"\n  Próximos pasos:")
         print(f"  1. Abre Obsidian y revisa el borrador")
         print(f"  2. Edita el tweet si quieres")
