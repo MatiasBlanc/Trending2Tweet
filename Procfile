@@ -1,1 +1,1 @@
-worker: python scheduler.py
+worker: python sync_obsidian.py python scheduler.py
