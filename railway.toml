@@ -3,6 +3,5 @@ builder = "nixpacks"
 
 [deploy]
 startCommand = "python scheduler.py"
-healthcheckPath = ""
 restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3
+restartPolicyMaxRetries = 10

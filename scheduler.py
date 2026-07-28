@@ -24,10 +24,16 @@ from metrics_collector import crear_cliente, obtener_metricas_tweet
 # Ruta base del proyecto
 BASE_DIR = Path(__file__).parent
 
-# Horarios de publicación (hora del servidor UTC, formato 24h)
+# Horarios de publicación en hora Chile (UTC-4 invierno / UTC-3 verano)
+# Railway usa UTC, así que ajustamos:
+# - 9:00 Chile invierno = 13:00 UTC
+# - 12:00 Chile invierno = 16:00 UTC
+# - 9:00 Chile verano = 12:00 UTC
+# - 12:00 Chile verano = 15:00 UTC
+# Usamos horario de invierno (UTC-4) por defecto
 HORARIOS_PUBLICACION = [
-    {"hora": 9, "minuto": 0, "script": "main_news.py", "label": "📰 News"},
-    {"hora": 12, "minuto": 0, "script": "main_github.py", "label": "🐙 GitHub"},
+    {"hora": 13, "minuto": 0, "script": "main_news.py", "label": "📰 News"},
+    {"hora": 16, "minuto": 0, "script": "main_github.py", "label": "🐙 GitHub"},
 ]
 
 # Registro de publicaciones del día (para no duplicar)
