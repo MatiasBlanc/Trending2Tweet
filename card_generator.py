@@ -2,8 +2,8 @@
 
 Diseño: Tokyo Night color palette
 Tipografía:
-  - Doto      → Números y estadísticas (estilo tech/dot-matrix)
-  - Montserrat → Títulos, descripciones, badges y branding (alta legibilidad)
+  - Doto      → Badges, estadísticas, números y branding (dot-matrix aesthetic)
+  - Montserrat → Títulos, descripciones y texto narrativo (alta legibilidad)
 
 Variables de entorno:
   ENABLE_TWEET_IMAGES   true/false  (default: true)
@@ -43,21 +43,21 @@ PADDING = 72
 # ══════════════════════════════════════════════════════════════════
 # TOKYO NIGHT PALETTE
 # ══════════════════════════════════════════════════════════════════
-TN_BG        = (26,  27,  38)   # #1a1b26  fondo principal
-TN_BG_DARK   = (22,  22,  30)   # #16161e  fondo más oscuro
-TN_BG_PANEL  = (36,  40,  59)   # #24283b  panel bg
-TN_BG_HL     = (41,  46,  66)   # #292e42  borde
-TN_FG        = (192, 202, 245)  # #c0caf5  texto principal
-TN_COMMENT   = (86,  95,  137)  # #565f89  texto secundario
-TN_BLUE      = (122, 162, 247)  # #7aa2f7  azul tokyo
-TN_BLUE_DIM  = (30,  32,  60)   # fondo badge azul
-TN_CYAN      = (125, 207, 255)  # #7dcfff  cyan
-TN_GREEN     = (158, 206, 106)  # #9ece6a  verde
-TN_PURPLE    = (187, 154, 247)  # #bb9af7  purple
-TN_ORANGE    = (255, 158, 100)  # #ff9e64  naranja
-TN_ORANGE_DIM= (50,  30,  12)   # fondo badge naranja
-TN_YELLOW    = (224, 175, 104)  # #e0af68  amarillo (stars)
-TN_RED       = (247, 118, 142)  # #f7768e  rojo
+TN_BG        = (26,  27,  38)   # #1a1b26
+TN_BG_DARK   = (22,  22,  30)   # #16161e
+TN_BG_PANEL  = (36,  40,  59)   # #24283b
+TN_BG_HL     = (41,  46,  66)   # #292e42
+TN_FG        = (192, 202, 245)  # #c0caf5
+TN_COMMENT   = (86,  95,  137)  # #565f89
+TN_BLUE      = (122, 162, 247)  # #7aa2f7
+TN_BLUE_DIM  = (30,  32,  60)
+TN_CYAN      = (125, 207, 255)  # #7dcfff
+TN_GREEN     = (158, 206, 106)  # #9ece6a
+TN_PURPLE    = (187, 154, 247)  # #bb9af7
+TN_ORANGE    = (255, 158, 100)  # #ff9e64
+TN_ORANGE_DIM= (50,  30,  12)
+TN_YELLOW    = (224, 175, 104)  # #e0af68
+TN_RED       = (247, 118, 142)  # #f7768e
 
 
 # ── Helpers ───────────────────────────────────────────────────────
@@ -117,33 +117,43 @@ def _stars_str(stars: int) -> str:
     return f"{stars/1000:.1f}k" if stars >= 1000 else str(stars)
 
 
-def _badge(draw, x, y, text, font, fg, bg, border, radius=20):
-    """Dibuja un badge pill con texto perfectamente alineado en el centro."""
+def _badge(draw, x, y, text, font, fg, bg, border, radius=12, is_doto=False):
+    """Dibuja un badge con texto perfectamente alineado en el centro.
+    
+    Aplica una corrección especial de offset de Y para la fuente Doto,
+    ya que tiende a renderizarse ligeramente desplazada hacia arriba.
+    """
     bb = draw.textbbox((0, 0), text, font=font)
     text_w = bb[2] - bb[0]
     text_h = bb[3] - bb[1]
     
-    # Padding interno
-    padding_x = 24
-    padding_y = 12
+    # Doto tiene un espaciado vertical mayor en sus glifos.
+    # Usamos paddings optimizados según la tipografía.
+    padding_x = 24 if not is_doto else 20
+    padding_y = 12 if not is_doto else 16
     
     pw = text_w + padding_x * 2
     ph = text_h + padding_y * 2
     
-    # Dibujar la cápsula
+    # Dibujar cápsula
     draw.rounded_rectangle([x, y, x + pw, y + ph], radius=radius,
                             fill=bg, outline=border, width=1)
     
-    # Centrar horizontal y verticalmente usando anchor="mm" (middle-middle)
+    # Centro geométrico del badge
     center_x = x + (pw / 2)
     center_y = y + (ph / 2)
+    
+    # Corrección empírica de baseline para Doto (+5px vertical)
+    if is_doto:
+        center_y += 5
+        
     draw.text((center_x, center_y), text, font=font, fill=fg, anchor="mm")
     
     return pw, ph
 
 
 def _draw_star_vector(draw, cx, cy, size, fill_color):
-    """Dibuja geométricamente una estrella de 5 puntas perfecta sin depender de fuentes unicode."""
+    """Dibuja geométricamente una estrella de 5 puntas perfecta."""
     points = []
     r_outer = size
     r_inner = size * 0.40
@@ -189,24 +199,23 @@ def generate_github_card(
         radius=2, fill=TN_BLUE,
     )
 
-    # Fuentes:
-    # Montserrat para badges, nombres, textos y branding (alineación impecable)
-    # Doto para estadísticas y números (dot-matrix aesthetic)
-    f_badge_m  = _font(_MONT_BLACK,     20)   # Badge usando Montserrat para mejor alineación
-    f_owner_m  = _font(_MONT_SEMIBOLD,  28)   # "owner /"
-    f_repo_m   = _font(_MONT_BLACK,     62)   # nombre del repo
-    f_desc_m   = _font(_MONT_REGULAR,   33)   # descripción
-    f_stars_d  = _font(_DOTO_BLACK,     68)   # número stars en Doto
-    f_label_m  = _font(_MONT_SEMIBOLD,  22)   # "STARS", "LANGUAGE"
-    f_brand_m  = _font(_MONT_BOLD,      30)   # Branding en Montserrat y más grande
+    # Fuentes
+    # Doto en los badges con alineación corregida
+    f_badge_d  = _font(_DOTO_BLACK,     26)   # Doto Black para el badge principal
+    f_owner_m  = _font(_MONT_SEMIBOLD,  28)
+    f_repo_m   = _font(_MONT_BLACK,     62)
+    f_desc_m   = _font(_MONT_REGULAR,   33)
+    f_stars_d  = _font(_DOTO_BLACK,     68)
+    f_label_d  = _font(_DOTO_BOLD,      22)   # Labels inferiores en Doto
+    f_brand_m  = _font(_MONT_BOLD,      30)
 
     cx = PANEL_M + PADDING
     cw = W - cx*2
 
-    # ── Badge "GITHUB TRENDING" ──────────────────────────────────
+    # ── Badge "GITHUB TRENDING" (Doto con offset de Y) ───────────
     by = PANEL_M + 48
     bw, bh = _badge(draw, cx, by, "GITHUB TRENDING",
-                    f_badge_m, TN_BLUE, TN_BLUE_DIM, TN_BLUE, radius=12)
+                    f_badge_d, TN_BLUE, TN_BLUE_DIM, TN_BLUE, radius=12, is_doto=True)
 
     # ── Owner / Repo ─────────────────────────────────────────────
     parts = repo_name.split("/", 1)
@@ -237,25 +246,24 @@ def generate_github_card(
     sy = H - PANEL_M - PADDING - 88
     draw.line([(cx, sy-16), (W-cx, sy-16)], fill=TN_BG_HL, width=1)
 
-    # Stars (Dibuja estrella vector + número en Doto)
+    # Stars (Estrella vectorial + número Doto)
     star_radius = 28
     star_cx = cx + star_radius
     star_cy = sy + 30
     _draw_star_vector(draw, star_cx, star_cy, star_radius, TN_YELLOW)
     
     stars_s = _stars_str(stars)
-    # Dibujamos el número con un pequeño offset respecto a la estrella
     draw.text((cx + star_radius * 2 + 16, sy), stars_s, font=f_stars_d, fill=TN_FG)
     total_sw = star_radius * 2 + 16 + _tw(draw, stars_s, f_stars_d)
     
-    # Label "STARS"
-    draw.text((cx, sy + 68), "STARS", font=f_label_m, fill=TN_COMMENT)
+    # Label "STARS" (en Doto)
+    draw.text((cx, sy + 68), "STARS", font=f_label_d, fill=TN_COMMENT)
 
-    # Language badge (Montserrat)
+    # Language badge (Doto con offset de Y)
     if language:
         lx = cx + total_sw + 48
         _badge(draw, lx, sy + 10, language.upper(),
-               f_label_m, TN_CYAN, TN_BG_HL, TN_CYAN, radius=8)
+               f_label_d, TN_CYAN, TN_BG_HL, TN_CYAN, radius=8, is_doto=True)
 
     # Branding (Montserrat grande y azul Tokyo Night)
     brand = "@" + CARD_BRAND_NAME
@@ -305,22 +313,22 @@ def generate_news_card(
     )
 
     # Fuentes
-    f_badge_m  = _font(_MONT_BLACK,     20)
+    f_badge_d  = _font(_DOTO_BLACK,     26)   # Doto Black
     f_score_d  = _font(_DOTO_BLACK,     68)
     f_comm_d   = _font(_DOTO_BOLD,      42)
     f_title_m  = _font(_MONT_BLACK,     52)
     f_title2_m = _font(_MONT_BLACK,     42)
-    f_label_m  = _font(_MONT_SEMIBOLD,  22)
+    f_label_d  = _font(_DOTO_BOLD,      22)   # Labels en Doto
     f_author_m = _font(_MONT_REGULAR,   26)
     f_brand_m  = _font(_MONT_BOLD,      30)
 
     cx = PANEL_M + PADDING
     cw = W - cx*2
 
-    # ── Badge "HN TRENDING" ──────────────────────────────────────
+    # ── Badge "HN TRENDING" (Doto con offset de Y) ───────────────
     by = PANEL_M + 48
     bw, bh = _badge(draw, cx, by, "HN TRENDING",
-                    f_badge_m, TN_ORANGE, TN_ORANGE_DIM, TN_ORANGE, radius=12)
+                    f_badge_d, TN_ORANGE, TN_ORANGE_DIM, TN_ORANGE, radius=12, is_doto=True)
 
     # ── Título ────────────────────────────────────────────────────
     ty = by + bh + 32
@@ -344,7 +352,7 @@ def generate_news_card(
     score_s = str(score)
     draw.text((cx, sy), score_s, font=f_score_d, fill=TN_ORANGE)
     sw = _tw(draw, score_s, f_score_d)
-    draw.text((cx, sy + 68), "PUNTOS HN", font=f_label_m, fill=TN_COMMENT)
+    draw.text((cx, sy + 68), "PUNTOS HN", font=f_label_d, fill=TN_COMMENT)
 
     # Barra de score
     bar_x  = cx + sw + 40
@@ -360,7 +368,7 @@ def generate_news_card(
     comm_s = str(comments)
     cx2 = bar_x + bar_mw + 48
     draw.text((cx2, sy), comm_s, font=f_comm_d, fill=TN_CYAN)
-    draw.text((cx2, sy + 52), "COMMENTS", font=f_label_m, fill=TN_COMMENT)
+    draw.text((cx2, sy + 52), "COMMENTS", font=f_label_d, fill=TN_COMMENT)
 
     # Branding (Montserrat grande y naranja Tokyo Night)
     brand = "@" + CARD_BRAND_NAME
