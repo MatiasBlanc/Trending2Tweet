@@ -18,12 +18,16 @@ from metrics_db import load_processed, is_processed
 PROMPT_FILE = "prompts/prompt_news.txt"
 
 # Estilos de gancho para variar el tono de los tweets
+# Optimizados para maximizar reply velocity en los primeros 30 minutos
 ESTILOS_GANCHO = [
-    "Inicia cuestionando de forma constructiva si esta tecnología realmente resuelve un problema o si solo añade más complejidad al stack.",
-    "Abre destacando el impacto directo que esta novedad tendrá en el flujo de trabajo diario de los desarrolladores.",
-    "Comienza mencionando cómo esta herramienta o actualización compite o cambia las reglas frente a los estándares actuales del ecosistema.",
-    "Lanza un dato directo y contundente sobre por qué la comunidad está prestando tanta atención a este lanzamiento.",
-    "Haz una observación rápida y analítica sobre hacia dónde se dirige la industria basándote en el impacto de esta noticia.",
+    "Abre con la consecuencia más incómoda o inesperada de esta noticia para los developers. No la noticia en sí, sino lo que implica en la práctica para quien escribe código hoy.",
+    "Usa el formato 'Todo lo que sabíamos sobre [X] acaba de cambiar' adaptado al contexto exacto de la noticia. Sé específico con qué es lo que cambió.",
+    "Abre revelando el dato más sorprendente o contraintuitivo de la noticia — el que la mayoría pasaría por alto pero que cambia cómo se lee todo lo demás.",
+    "Plantea la tensión central que esta noticia crea en el ecosistema: ¿quién gana, quién pierde, qué stack queda en duda? Empieza con esa fricción.",
+    "Abre con la pregunta que los seniors de tu empresa estarían haciendo en Slack ahora mismo si vieran esta noticia. Concreta, técnica, sin respuesta obvia.",
+    "Usa el contraste: muestra cómo era antes vs. cómo cambia ahora con esta noticia. Una sola línea, sin relleno.",
+    "Abre con una afirmación que divida a la comunidad en dos posiciones claras. El objetivo es que quien lee sienta la necesidad de posicionarse.",
+    "Comienza con el dato de tracción de Hacker News (puntos + comentarios) como prueba social de por qué esta noticia merece atención ahora, luego revela el tema.",
 ]
 
 
