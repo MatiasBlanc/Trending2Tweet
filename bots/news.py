@@ -1,6 +1,6 @@
-"""Bot de Noticias Tech: obtiene noticias diarias y publica tweets.
+"""Bot de Noticias Tech: obtiene noticias diarias y genera borradores en Obsidian.
 
-Ejecución automatizada sin interacción del usuario.
+Uso: python -m bots.news
 """
 
 import random
@@ -10,9 +10,9 @@ from pathlib import Path
 from src import config
 from sources.hacker_news_client import get_top_stories, get_best_stories
 from src.llm_client import generate_tweet
-from src.card_generator import generate_news_card
-from twitter_client import publicar_tweet
 from db.metrics_db import is_processed, mark_as_processed
+from src.card_generator import generate_news_card
+from src.obsidian_vault import guardar_borrador, guardar_imagen_vault
 
 PROMPT_FILE = "prompts/prompt_news.txt"
 
@@ -48,7 +48,8 @@ ESTILOS_GANCHO = [
     "Plantea la tensión central que esta noticia crea en el ecosistema: ¿quién gana, quién pierde, qué stack queda en duda?",
     "Abre con la pregunta que los seniors de tu empresa estarían haciendo en Slack ahora mismo si vieran esta noticia.",
     "Usa el contraste: muestra cómo era antes vs. cómo cambia ahora con esta noticia. Una sola línea, sin relleno.",
-    "Abre con una afirmación que divida a la comunidad en dos posiciones claras. El objetivo es que quien lea sienta la necesidad de posicionarse.",
+    "Abre con una afirmación que divida a la comunidad en dos posiciones claras. El objetivo es que quien lee sienta la necesidad de posicionarse.",
+    "Comienza con el dato de tracción de Hacker News (puntos + comentarios) como prueba social de por qué esta noticia merece atención ahora.",
 ]
 
 
@@ -80,7 +81,7 @@ def construir_mensaje_usuario(story: dict) -> str:
 def main() -> None:
     """Ejecución principal del bot de noticias."""
     print("━" * 50)
-    print("  Tech News Bot - Publicación automática")
+    print("  Tech News Bot")
     print("━" * 50)
 
     try:
@@ -126,54 +127,46 @@ def main() -> None:
         if config.FORCE_280_CHAR_TWEET and len(tweet_text) > 280:
             tweet_text = tweet_text[:277] + "..."
 
-        # Generar tarjeta visual si está habilitado
         imagen_path = None
-        if config.ENABLE_TWEET_IMAGES:
-            try:
-                image_bytes = generate_news_card(
-                    title=story["title"],
-                    score=story["score"],
-                    comments=story["comments"],
-                    author=story.get("author", ""),
-                )
-                if image_bytes:
-                    # Guardar imagen temporalmente
-                    import tempfile
-                    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
-                        f.write(image_bytes)
-                        imagen_path = f.name
-                    print(f"  🖼️  Tarjeta visual generada")
-            except Exception as e:
-                print(f"  ⚠️  No se pudo generar tarjeta: {e}")
-
-        # Publicar tweet
         try:
-            resultado = publicar_tweet(
-                texto=tweet_text,
-                imagen_path=imagen_path,
+            image_bytes = generate_news_card(
+                title=story["title"],
+                score=story["score"],
+                comments=story["comments"],
+                author=story.get("author", ""),
             )
-            
-            # Marcar como procesado
-            mark_as_processed(
-                story["id"],
-                "news",
-                tweet_id=resultado["tweet_id"],
-                texto=tweet_text[:100],
-            )
-            
-            print(f"\n{'━' * 50}")
-            print(f"  ✅ Tweet publicado: {resultado['tweet_id']}")
-            print(f"{'━' * 50}")
-            
-            # Limpiar imagen temporal
-            if imagen_path and os.path.exists(imagen_path):
-                os.unlink(imagen_path)
-            
-            return  # Publicar solo una noticia por ejecución
-            
+            if image_bytes:
+                print(f"  🖼️  Tarjeta visual generada")
+                imagen_path = guardar_imagen_vault(
+                    image_bytes=image_bytes,
+                    nombre_archivo=story["title"][:50],
+                    source="news",
+                )
         except Exception as e:
-            print(f"  ❌ Error publicando tweet: {e}")
-            continue
+            print(f"  ⚠️  No se pudo generar tarjeta: {e}")
+
+        try:
+            filepath = guardar_borrador(
+                texto=tweet_text,
+                source="news",
+                titulo=story["title"],
+                url=story["url"],
+                item_id=story["id"],
+                prompt_file=PROMPT_FILE,
+                template_estilo=estilo_gancho[:100],
+                imagen_path=imagen_path,
+                notas=f"Puntuación HN: {story['score']} | Comentarios: {story['comments']}",
+            )
+            if filepath:
+                print(f"  📝 Borrador guardado: {Path(filepath).name}")
+                mark_as_processed(story["id"], "news", texto=tweet_text[:100])
+        except Exception as e:
+            print(f"  ⚠️  No se pudo guardar borrador: {e}")
+
+        print(f"\n{'━' * 50}")
+        print(f"  ✅ Completado: 1 borrador creado")
+        print(f"{'━' * 50}")
+        return
 
     print("\n  ⚠️  No hay noticias nuevas para procesar.")
 

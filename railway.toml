@@ -1,8 +1,8 @@
 [build]
-builder = "dockerfile"
+builder = "nixpacks"
 
 [deploy]
-startCommand = "python sync_obsidian.py python scheduler.py"
+startCommand = "python scheduler.py"
 restartPolicyType = "always"
 restartPolicyMaxRetries = 10
 healthcheckPath = ""

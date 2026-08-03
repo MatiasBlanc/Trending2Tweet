@@ -6,7 +6,7 @@ from typing import List, Optional
 
 import requests
 
-import config
+from src import config
 
 
 GITHUB_API = "https://api.github.com"

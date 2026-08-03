@@ -11,9 +11,7 @@ from typing import Optional
 
 import tweepy
 
-import config
-from metrics_db import registrar_tweet
-from obsidian_vault import guardar_tweet_en_vault
+from src import config
 
 
 def _crear_cliente_v2() -> tweepy.Client:
@@ -48,108 +46,46 @@ def _crear_api_v1() -> tweepy.API:
     return tweepy.API(auth)
 
 
-# Alias público para compatibilidad con metrics_collector
-def crear_cliente() -> tweepy.Client:
-    return _crear_cliente_v2()
-
-
-def subir_imagen(image_bytes: bytes) -> Optional[str]:
-    """Sube una imagen a Twitter y devuelve el media_id.
-
-    Args:
-        image_bytes: Bytes de la imagen PNG.
-
-    Returns:
-        media_id_string si fue exitoso, None si falló.
-    """
-    try:
-        api_v1 = _crear_api_v1()
-        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-            tmp.write(image_bytes)
-            tmp_path = tmp.name
-        try:
-            media = api_v1.media_upload(filename=tmp_path)
-            return str(media.media_id)
-        finally:
-            os.unlink(tmp_path)
-    except Exception as e:
-        print(f"  ⚠️ Error subiendo imagen: {e}")
-        return None
-
-
-def publicar_tweet(
-    texto: str,
-    source: str = "unknown",
-    item_id: str = None,
-    prompt_file: str = None,
-    template_estilo: str = None,
-    image_bytes: bytes = None,
-) -> dict:
-    """Publica un tweet en X/Twitter (con imagen opcional) y lo registra.
+def publicar_tweet(texto: str, imagen_path: Optional[str] = None) -> dict:
+    """Publica un tweet en Twitter.
 
     Args:
         texto: Contenido del tweet.
-        source: Fuente (github, news, github_manual).
-        item_id: ID del item procesado.
-        prompt_file: Ruta del prompt usado.
-        template_estilo: Estilo de gancho usado (si aplica).
-        image_bytes: Bytes PNG de la imagen a adjuntar (opcional).
+        imagen_path: Ruta opcional a una imagen para adjuntar.
 
     Returns:
-        Diccionario con 'id', 'text' y 'has_media'.
+        Diccionario con el ID del tweet y datos adicionales.
+
+    Raises:
+        Exception: Si hay error en la publicación.
     """
-    client = _crear_cliente_v2()
-
-    # Subir imagen si se provee
-    media_id = None
-    if image_bytes:
-        print("  🖼️  Subiendo imagen...")
-        media_id = subir_imagen(image_bytes)
-        if media_id:
-            print(f"  ✅ Imagen subida (media_id: {media_id})")
-        else:
-            print("  ⚠️  Continuando sin imagen...")
-
-    # Publicar tweet
-    kwargs = {"text": texto}
-    if media_id:
-        kwargs["media_ids"] = [media_id]
-
-    respuesta = client.create_tweet(**kwargs)
-    tweet_id  = respuesta.data["id"]
-
-    # Registrar en métricas
+    cliente_v2 = _crear_cliente_v2()
+    
+    media_ids = None
+    if imagen_path and os.path.exists(imagen_path):
+        try:
+            api_v1 = _crear_api_v1()
+            media = api_v1.media_upload(filename=imagen_path)
+            media_ids = [media.media_id]
+            print(f"  🖼️  Imagen subida: {media.media_id}")
+        except Exception as e:
+            print(f"  ⚠️  Error subiendo imagen: {e}")
+            # Continuar sin imagen
+    
     try:
-        registrar_tweet(
-            tweet_id=tweet_id,
-            texto=texto,
-            source=source,
-            item_id=item_id,
-            prompt_file=prompt_file,
-            template_estilo=template_estilo,
+        respuesta = cliente_v2.create_tweet(
+            text=texto,
+            media_ids=media_ids,
         )
+        tweet_id = respuesta.data["id"]
+        print(f"  ✅ Tweet publicado: {tweet_id}")
+        
+        return {
+            "tweet_id": tweet_id,
+            "texto": texto,
+            "fecha": datetime.now().isoformat(),
+            "imagen": imagen_path,
+        }
     except Exception as e:
-        print(f"  ⚠️ No se pudo registrar en metrics DB: {e}")
-
-    # Guardar en bóveda de Obsidian
-    try:
-        guardar_tweet_en_vault(
-            tweet_id=tweet_id,
-            texto=texto,
-            source=source,
-            item_id=item_id,
-            published_at=datetime.now().isoformat(),
-            prompt_file=prompt_file,
-            template_estilo=template_estilo,
-        )
-    except Exception as e:
-        print(f"  ⚠️ No se pudo guardar en Obsidian: {e}")
-
-    return {"id": tweet_id, "text": texto, "has_media": media_id is not None}
-
-
-def publicar_respuesta(tweet_id: str, texto: str) -> dict:
-    """Publica una respuesta a un tweet existente."""
-    client = _crear_cliente_v2()
-    respuesta = client.create_tweet(text=texto, in_reply_to_tweet_id=tweet_id)
-    return {"id": respuesta.data["id"], "text": texto}
+        print(f"  ❌ Error publicando tweet: {e}")
+        raise
