@@ -15,6 +15,7 @@ from src.llm_client import generate_tweet
 from db.metrics_db import mark_as_processed, is_processed, remove_from_history
 from src.obsidian_vault import guardar_borrador, guardar_imagen_vault
 from src.card_generator import generate_github_card
+from src.railway_sync import registrar_en_railway
 
 PROMPT_FILE = "prompts/prompt_github.txt"
 
@@ -164,6 +165,7 @@ def main() -> None:
         print(f"  📂 Archivo: {Path(filepath).name}")
 
         mark_as_processed(repo["id"], "github_manual", texto=tweet_text[:100])
+        registrar_en_railway(repo["id"], "github_manual")
 
         print(f"\n  Próximos pasos:")
         print(f"  1. Abre Obsidian y revisa el tweet")

@@ -16,6 +16,11 @@ LLM_BASE_URL: str = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
 LLM_MODEL: str = os.getenv("LLM_MODEL", "gpt-4o-mini")
 LLM_MAX_TOKENS: int = int(os.getenv("LLM_MAX_TOKENS", "1024"))
 LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.2"))
+# Versión de API obligatoria en Azure OpenAI (solo endpoints estilo *.openai.azure.com).
+# Vacío = no aplica. El endpoint /openai/v1 de AI Foundry NO acepta este parámetro.
+LLM_API_VERSION: str = os.getenv("LLM_API_VERSION", "")
+# true = usar max_completion_tokens en lugar de max_tokens (modelos gpt-5.x)
+LLM_USE_MAX_COMPLETION_TOKENS: bool = os.getenv("LLM_USE_MAX_COMPLETION_TOKENS", "false").lower() == "true"
 
 # Control de longitud de tweets
 FORCE_280_CHAR_TWEET: bool = os.getenv("FORCE_280_CHAR_TWEET", "true").lower() == "true"
@@ -30,6 +35,12 @@ OBSIDIAN_VAULT_PATH: str = os.getenv("OBSIDIAN_VAULT_PATH", "")
 
 # Base de datos
 METRICS_DB_PATH: str = os.getenv("METRICS_DB_PATH", "metrics.db")
+
+# Sincronización con Railway
+# true = los items procesados localmente se registran también en la DB de
+# Railway (volume /data) para que el scheduler no los vuelva a publicar.
+RAILWAY_SYNC_ENABLED: bool = os.getenv("RAILWAY_SYNC_ENABLED", "true").lower() == "true"
+RAILWAY_SSH_TIMEOUT: int = int(os.getenv("RAILWAY_SSH_TIMEOUT", "45"))
 
 # Branding para tarjetas
 CARD_BRAND_NAME: str = os.getenv("CARD_BRAND_NAME", "matiasblnc")

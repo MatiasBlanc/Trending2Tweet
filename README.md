@@ -81,6 +81,19 @@ attachments/       ← Imágenes generadas
 4. Mover a `T2T/listos/` cuando esté listo
 5. Publicar manualmente en Twitter
 
+> ⚠️ **Railway publica automático; lo local manda.** El scheduler de Railway
+> publica tweets automáticamente a las 9:00 y 12:00 (Chile). Todo lo que
+> proceses desde tu máquina (borradores, manuales, noticias) se registra
+> también en la DB de Railway (`railway ssh`), así el bot automático **no
+> vuelve a publicar** lo que ya hiciste desde acá. Requiere la CLI de Railway
+> logueada: `railway login`. Para desactivarlo: `RAILWAY_SYNC_ENABLED=false`.
+>
+> Migración manual (sube el historial local a Railway):
+>
+> ```bash
+> python scripts/sync_local_to_railway.py
+> ```
+
 ## Estructura del Proyecto
 
 ```

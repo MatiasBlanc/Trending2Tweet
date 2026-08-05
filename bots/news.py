@@ -13,6 +13,7 @@ from src.llm_client import generate_tweet
 from db.metrics_db import is_processed, mark_as_processed
 from src.card_generator import generate_news_card
 from src.obsidian_vault import guardar_borrador, guardar_imagen_vault
+from src.railway_sync import registrar_en_railway
 
 PROMPT_FILE = "prompts/prompt_news.txt"
 
@@ -160,6 +161,7 @@ def main() -> None:
             if filepath:
                 print(f"  📝 Borrador guardado: {Path(filepath).name}")
                 mark_as_processed(story["id"], "news", texto=tweet_text[:100])
+                registrar_en_railway(story["id"], "news")
         except Exception as e:
             print(f"  ⚠️  No se pudo guardar borrador: {e}")
 
