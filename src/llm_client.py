@@ -40,11 +40,22 @@ def generate_tweet(prompt_file: str, user_message: str, variables: dict = None, 
     Raises:
         Exception: Error de la API del LLM o si no se puede generar contenido después de reintentos.
     """
-    client = OpenAI(
-        api_key=config.LLM_API_KEY,
-        base_url=config.LLM_BASE_URL,
-        timeout=60.0,
-    )
+    client_kwargs = {
+        "api_key": config.LLM_API_KEY,
+        "base_url": config.LLM_BASE_URL,
+        "timeout": 60.0,
+    }
+    # Azure OpenAI exige `api-version` en cada petición; el SDK solo lo añade si
+    # se indica explícitamente. El endpoint /openai/v1 de AI Foundry NO lo acepta.
+    es_endpoint_foundry_v1 = "/openai/v1" in config.LLM_BASE_URL
+    if (
+        config.LLM_API_VERSION
+        and not es_endpoint_foundry_v1
+        and "api-version" not in config.LLM_BASE_URL
+    ):
+        client_kwargs["default_query"] = {"api-version": config.LLM_API_VERSION}
+
+    client = OpenAI(**client_kwargs)
 
     system_prompt = _leer_prompt(prompt_file, _obtener_limite_texto())
     
@@ -53,6 +64,13 @@ def generate_tweet(prompt_file: str, user_message: str, variables: dict = None, 
             system_prompt = system_prompt.replace(f"{{{clave}}}", valor)
 
     max_tokens = max_tokens_override or config.LLM_MAX_TOKENS
+    # Modelos gpt-5.x rechazan max_tokens: usan max_completion_tokens.
+    kwargs_completions = {}
+    es_modelo_gpt5 = config.LLM_MODEL.lower().startswith("gpt-5")
+    if config.LLM_USE_MAX_COMPLETION_TOKENS or es_modelo_gpt5:
+        kwargs_completions["max_completion_tokens"] = max_tokens
+    else:
+        kwargs_completions["max_tokens"] = max_tokens
 
     for intento in range(max_reintentos):
         completion = client.chat.completions.create(
@@ -61,7 +79,7 @@ def generate_tweet(prompt_file: str, user_message: str, variables: dict = None, 
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message},
             ],
-            max_tokens=max_tokens,
+            **kwargs_completions,
             temperature=config.LLM_TEMPERATURE,
         )
 
