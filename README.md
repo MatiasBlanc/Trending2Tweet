@@ -60,7 +60,14 @@ Mejora tweets manuales con IA para hacerlos más virales:
 python -m bots.mejorar_tweet
 ```
 
-Para más detalles, ver [docs/mejorar-tweet.md](docs/mejorar-tweet.md).
+### Bots temáticos
+Generan y publican el primer tweet nuevo encontrado en Hacker News para cada tema:
+```bash
+python -m bots.codigo
+python -m bots.teclados
+```
+
+Para más detalles sobre el bot de mejora, ver [docs/mejorar-tweet.md](docs/mejorar-tweet.md).
 
 ## Estructura de Obsidian
 
@@ -100,7 +107,9 @@ trending2Tweet/
 ├── bots/
 │   ├── github_manual.py    ← Bot manual para repos específicos
 │   ├── github_trending.py  ← Bot automático para repos trending
-│   ├── news.py             ← Bot de noticias Hacker News
+│   ├── news.py             ← Bot general de noticias Hacker News
+│   ├── codigo.py           ← Bot de noticias de programación
+│   ├── teclados.py         ← Bot de noticias sobre teclados
 │   └── mejorar_tweet.py    ← Bot para mejorar tweets manuales con IA
 ├── src/
 │   ├── config.py           ← Configuración centralizada
@@ -115,6 +124,8 @@ trending2Tweet/
 ├── prompts/
 │   ├── prompt_github.txt      ← Prompt para tweets de GitHub
 │   ├── prompt_news.txt        ← Prompt para tweets de noticias
+│   ├── prompt_codigo.txt      ← Prompt para tweets de programación
+│   ├── prompt_teclados.txt    ← Prompt para tweets de teclados
 │   └── prompt_mejorar_tweet.txt ← Prompt para mejorar tweets
 ├── docs/
 │   └── mejorar-tweet.md       ← Documentación del bot de mejora
