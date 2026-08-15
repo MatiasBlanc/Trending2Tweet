@@ -42,10 +42,6 @@ METRICS_DB_PATH: str = os.getenv("METRICS_DB_PATH", "metrics.db")
 RAILWAY_SYNC_ENABLED: bool = os.getenv("RAILWAY_SYNC_ENABLED", "true").lower() == "true"
 RAILWAY_SSH_TIMEOUT: int = int(os.getenv("RAILWAY_SSH_TIMEOUT", "45"))
 
-# Branding para tarjetas
-CARD_BRAND_NAME: str = os.getenv("CARD_BRAND_NAME", "matiasblnc")
-ENABLE_TWEET_IMAGES: bool = os.getenv("ENABLE_TWEET_IMAGES", "true").lower() == "true"
-
 # Twitter API
 TWITTER_API_KEY: str = os.getenv("TWITTER_API_KEY", "")
 TWITTER_API_SECRET: str = os.getenv("TWITTER_API_SECRET", "")

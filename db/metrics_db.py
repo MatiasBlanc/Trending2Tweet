@@ -12,6 +12,7 @@ DB_PATH = Path(config.METRICS_DB_PATH)
 
 def _get_connection() -> sqlite3.Connection:
     """Obtiene una conexión a la base de datos."""
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
     return conn

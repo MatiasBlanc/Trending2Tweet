@@ -1,19 +1,16 @@
-"""Bot de Noticias Tech: obtiene noticias diarias y genera borradores en Obsidian.
+"""Bot de Noticias Tech: obtiene noticias diarias y publica tweets.
 
 Uso: python -m bots.news
 """
 
 import random
 import sys
-from pathlib import Path
 
 from src import config
 from sources.hacker_news_client import get_top_stories, get_best_stories
 from src.llm_client import generate_tweet
-from db.metrics_db import is_processed, mark_as_processed
-from src.card_generator import generate_news_card
-from src.obsidian_vault import guardar_borrador, guardar_imagen_vault
-from src.railway_sync import registrar_en_railway
+from db.metrics_db import is_processed
+from src.publishing import publicar_y_registrar
 
 PROMPT_FILE = "prompts/prompt_news.txt"
 
@@ -43,14 +40,13 @@ EXCLUDE_KEYWORDS = [
 ]
 
 ESTILOS_GANCHO = [
-    "Abre con la consecuencia más incómoda o inesperada de esta noticia para los developers. No la noticia en sí, sino lo que implica en la práctica.",
-    "Usa el formato 'Todo lo que sabíamos sobre [X] acaba de cambiar' adaptado al contexto exacto de la noticia. Sé específico.",
-    "Abre revelando el dato más sorprendente o contraintuitivo de la noticia — el que la mayoría pasaría por alto pero que cambia cómo se lee todo lo demás.",
-    "Plantea la tensión central que esta noticia crea en el ecosistema: ¿quién gana, quién pierde, qué stack queda en duda?",
-    "Abre con la pregunta que los seniors de tu empresa estarían haciendo en Slack ahora mismo si vieran esta noticia.",
-    "Usa el contraste: muestra cómo era antes vs. cómo cambia ahora con esta noticia. Una sola línea, sin relleno.",
-    "Abre con una afirmación que divida a la comunidad en dos posiciones claras. El objetivo es que quien lee sienta la necesidad de posicionarse.",
-    "Comienza con el dato de tracción de Hacker News (puntos + comentarios) como prueba social de por qué esta noticia merece atención ahora.",
+    "Destruye el mito que la mayoría asocia con esta noticia. No resumas; cuestiona lo que el lector cree saber.",
+    "Revela la consecuencia más incómoda para los developers que usan esto a diario. La que nadie quiere escuchar.",
+    "Señala el error de lectura más común que provocaría esta noticia. ¿Qué entiende mal la mayoría?",
+    "Contrasta lo que la noticia parece decir vs. lo que realmente dice. Una línea para cada uno.",
+    "Plantea la pregunta que un senior haría en Slack al ver esto: corta, directa, sin contexto previo.",
+    "Afirmación divisiva: toma un lado que obligue al lector a posicionarse. Sin tibieza.",
+    "El mecanismo concreto detrás de la noticia que cambia cómo se interpreta todo lo demás. Sé técnico.",
 ]
 
 
@@ -128,47 +124,8 @@ def main() -> None:
         if config.FORCE_280_CHAR_TWEET and len(tweet_text) > 280:
             tweet_text = tweet_text[:277] + "..."
 
-        imagen_path = None
-        try:
-            image_bytes = generate_news_card(
-                title=story["title"],
-                score=story["score"],
-                comments=story["comments"],
-                author=story.get("author", ""),
-            )
-            if image_bytes:
-                print(f"  🖼️  Tarjeta visual generada")
-                imagen_path = guardar_imagen_vault(
-                    image_bytes=image_bytes,
-                    nombre_archivo=story["title"][:50],
-                    source="news",
-                )
-        except Exception as e:
-            print(f"  ⚠️  No se pudo generar tarjeta: {e}")
-
-        try:
-            filepath = guardar_borrador(
-                texto=tweet_text,
-                source="news",
-                titulo=story["title"],
-                url=story["url"],
-                item_id=story["id"],
-                prompt_file=PROMPT_FILE,
-                template_estilo=estilo_gancho[:100],
-                imagen_path=imagen_path,
-                notas=f"Puntuación HN: {story['score']} | Comentarios: {story['comments']}",
-            )
-            if filepath:
-                print(f"  📝 Borrador guardado: {Path(filepath).name}")
-                mark_as_processed(story["id"], "news", texto=tweet_text[:100])
-                registrar_en_railway(story["id"], "news")
-        except Exception as e:
-            print(f"  ⚠️  No se pudo guardar borrador: {e}")
-
-        print(f"\n{'━' * 50}")
-        print(f"  ✅ Completado: 1 borrador creado")
-        print(f"{'━' * 50}")
-        return
+        if publicar_y_registrar(story["id"], "news", tweet_text):
+            return
 
     print("\n  ⚠️  No hay noticias nuevas para procesar.")
 

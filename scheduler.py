@@ -28,8 +28,8 @@ def _local_to_utc(hora: int, minuto: int) -> tuple[int, int]:
     return total_minutos // 60, total_minutos % 60
 
 _RAW_SCHEDULES = [
-    {"hora": 9,  "minuto": 0, "script": "main_news.py",   "label": "📰 News"},
-    {"hora": 12, "minuto": 0, "script": "main_github.py", "label": "🐙 GitHub"},
+    {"hora": 9,  "minuto": 0, "modulo": "bots.news", "label": "📰 News"},
+    {"hora": 12, "minuto": 0, "modulo": "bots.github_trending", "label": "🐙 GitHub"},
 ]
 
 HORARIOS_PUBLICACION = [
@@ -60,22 +60,16 @@ def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def ejecutar_publicacion(script: str, label: str) -> bool:
-    """Ejecuta un script de publicación.
+def ejecutar_publicacion(modulo: str, label: str) -> bool:
+    """Ejecuta un módulo de publicación.
 
     Args:
-        script: Nombre del script a ejecutar (ej: main_news.py).
+        modulo: Módulo Python a ejecutar (ej: bots.news).
         label: Etiqueta descriptiva para los logs.
 
     Returns:
         True si la publicación fue exitosa, False en caso contrario.
     """
-    script_path = BASE_DIR / script
-
-    if not script_path.exists():
-        print(f"  ❌ Script no encontrado: {script_path}")
-        return False
-
     print(f"\n{'━' * 50}")
     print(f"  {label} - Publicando...")
     print(f"  ⏰ {_now_utc().strftime('%Y-%m-%d %H:%M:%S')} UTC")
@@ -83,7 +77,7 @@ def ejecutar_publicacion(script: str, label: str) -> bool:
 
     try:
         resultado = subprocess.run(
-            [sys.executable, str(script_path)],
+            [sys.executable, "-m", modulo],
             capture_output=True,
             text=True,
             timeout=300,  # 5 minutos máximo
@@ -111,7 +105,7 @@ def ejecutar_publicacion(script: str, label: str) -> bool:
 
 
 def verificar_y_publicar() -> None:
-    """Verifica si es hora de publicar y ejecuta los scripts correspondientes."""
+    """Verifica si es hora de publicar y ejecuta los módulos correspondientes."""
     global _publicaciones_hoy
 
     ahora = _now_utc()
@@ -122,7 +116,7 @@ def verificar_y_publicar() -> None:
         _publicaciones_hoy = {"fecha": fecha_hoy}
 
     for horario in HORARIOS_PUBLICACION:
-        clave = f"{fecha_hoy}_{horario['script']}"
+        clave = f"{fecha_hoy}_{horario['modulo']}"
 
         # Ya se publicó hoy
         if _publicaciones_hoy.get(clave):
@@ -131,7 +125,7 @@ def verificar_y_publicar() -> None:
         # Verificar si es la hora UTC configurada (ventana de 1 minuto)
         if ahora.hour == horario["hora_utc"] and ahora.minute == horario["minuto_utc"]:
             print(f"\n🕐 ¡Es hora de {horario['label']}! (UTC {ahora.strftime('%H:%M')})")
-            exito = ejecutar_publicacion(horario["script"], horario["label"])
+            exito = ejecutar_publicacion(horario["modulo"], horario["label"])
             _publicaciones_hoy[clave] = True
 
             if exito:

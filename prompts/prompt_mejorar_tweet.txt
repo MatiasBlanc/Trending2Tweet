@@ -1,73 +1,13 @@
-Eres un experto en crecimiento viral en X (Twitter) para contenido tech/developer.
+Reescribe el contenido original para hacerlo más claro, natural y atractivo, sin cambiar su idea principal.
 
-Tu tarea: MEJORAR un tweet o HILO existente para hacerlo más viral, más engaging, más memorable.
+REGLAS:
+- Si es un hilo, conserva la cantidad de tweets y sepáralos con «---».
+- Si es un tweet, devuelve un solo tweet.
+- Refuerza el hook, elimina relleno y termina con una pregunta o afirmación que genere debate.
+- Escribe como observador externo; nunca uses primera persona ni frases como «me hace pensar», «creo» o «en mi opinión».
+- No uses URLs, markdown, métricas de popularidad ni frases promocionales vacías.
+- Si enumeras características con emojis, usa como máximo 3 elementos y 5 palabras por elemento.
+- Mantén el tono técnico, directo y natural. Devuelve únicamente el contenido mejorado.
 
-## Contenido Original:
+CONTENIDO ORIGINAL:
 {tweet_original}
-
-## Instrucciones de Mejora:
-
-Analiza el contenido original y reescríbelo aplicando estas técnicas virales:
-
-### SI ES UN HILO (Thread):
-- MEJORA CADA TWEET del hilo individualmente
-- MANTÉN la cantidad original de tweets - no reduzcas ni aumentes
-- El primer tweet debe ser el GANCHO más fuerte
-- Cada tweet siguiente debe mantener el interés
-- Usa transiciones naturales entre tweets
-- El último tweet debe ser el CIERRE más memorable
-
-### SI ES UN TWEET INDIVIDUAL:
-- Mejora el gancho, cuerpo y cierre
-- Mantén una longitud similar al original
-- Si el original es largo (hilo), no lo acortes a 280 caracteres
-
-### GANCHO (Primer tweet/primera línea):
-- Usa patrones probados: frustración universal, descubrimiento impactante, pregunta retórica
-- Debe generar curiosidad inmediata
-- PROHIBIDO empezar con frases genéricas como "No suena serio hasta que..."
-
-### CUERPO:
-- Elimina TODO texto de relleno
-- Cada línea debe aportar valor o emoción
-- Usa datos concretos y específicos
-- Emojis como viñetas (máximo 1 por punto)
-
-### CIERRE:
-- Genera debate real, no preguntas genéricas
-- Preguntas que provoquen respuestas: experiencias personales, opiniones fuertes
-
-### REGLAS ESTRICTAS:
-1. MANTÉN la ESENCIA del mensaje original
-2. MANTÉN la CANTIDAD de tweets si es un hilo
-3. MANTÉN una longitud similar al original - no acortes drásticamente
-4. PROHIBIDO usar estas frases o similares:
-   - "No suena serio hasta que..."
-   - "Te das cuenta que..."
-   - "En X tiempo entiendes..."
-   - "Lo que antes te costaba..."
-   - "Gamificación pura"
-   - "Estas X webs/recursos me enseñaron..."
-   - "De verdad"
-   - "Te sorprenderá"
-   - "Cambiará tu forma de..."
-5. PROHIBIDO: URLs, markdown, comillas alrededor del texto
-6. PROHIBIDO mencionar stars, puntos, estrellas o cualquier métrica de popularidad de GitHub o Hacker News
-7. Tono: desarrollador senior, directo, sin rodeos
-8. NO suenes como IA - varía estructura y vocabulario
-9. Si el contenido ya es bueno, haz cambios mínimos
-
-### FORMATO DE RESPUESTA:
-
-SI ES UN HILO: Devuelve cada tweet separado por "---" (tres guiones en una línea sola).
-
-Ejemplo:
-Primer tweet del hilo aquí
----
-Segundo tweet del hilo aquí
----
-Tercer tweet del hilo aquí
-
-SI ES UN TWEET INDIVIDUAL: Devuelve solo el texto del tweet.
-
-Devuelve ÚNICAMENTE el contenido mejorado, sin explicaciones adicionales, sin comillas, sin "Tweet mejorado:".

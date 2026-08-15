@@ -31,7 +31,8 @@ Variables requeridas:
 - `LLM_API_KEY`: API key del LLM (OpenAI compatible)
 - `LLM_BASE_URL`: URL base del LLM
 - `LLM_MODEL`: Modelo a usar
-- `OBSIDIAN_VAULT_PATH`: Ruta a la bóveda de Obsidian
+- `TWITTER_API_KEY`, `TWITTER_API_SECRET`, `TWITTER_ACCESS_TOKEN` y `TWITTER_ACCESS_SECRET`: Credenciales de X
+- `OBSIDIAN_VAULT_PATH`: Ruta de la bóveda para los borradores manuales
 
 ## Uso
 
@@ -63,30 +64,28 @@ Para más detalles, ver [docs/mejorar-tweet.md](docs/mejorar-tweet.md).
 
 ## Estructura de Obsidian
 
-Los tweets se guardan en la bóveda de Obsidian con esta estructura:
+Los bots automáticos publican directamente en X. Obsidian se utiliza
+únicamente para los borradores creados por los bots manuales:
 
 ```
-T2T/
-├── borradores/    ← Tweets generados (pendientes de revisión)
-├── listos/        ← Tweets editados y listos para publicar
-└── publicados/    ← Tweets ya publicados en Twitter
-attachments/       ← Imágenes generadas
+Borradores/
+└── *.md
 ```
 
-### Flujo de trabajo
+### Flujo automático
 
-1. Ejecutar el bot → genera borrador en `T2T/borradores/`
-2. Abrir Obsidian y revisar el borrador
-3. Editar el tweet si es necesario
-4. Mover a `T2T/listos/` cuando esté listo
-5. Publicar manualmente en Twitter
+El scheduler ejecuta los módulos de `bots/` en los horarios configurados.
+Después de publicar correctamente, cada elemento se registra en SQLite para
+evitar duplicados.
 
-> ⚠️ **Railway publica automático; lo local manda.** El scheduler de Railway
-> publica tweets automáticamente a las 9:00 y 12:00 (Chile). Todo lo que
-> proceses desde tu máquina (borradores, manuales, noticias) se registra
-> también en la DB de Railway (`railway ssh`), así el bot automático **no
-> vuelve a publicar** lo que ya hiciste desde acá. Requiere la CLI de Railway
-> logueada: `railway login`. Para desactivarlo: `RAILWAY_SYNC_ENABLED=false`.
+### Flujo manual
+
+1. Ejecutar `bots.github_manual`.
+2. Revisar el archivo generado en `Borradores/`.
+3. Editarlo y publicarlo manualmente si corresponde.
+
+> `RAILWAY_SYNC_ENABLED` permite registrar en Railway los borradores
+> procesados localmente para evitar publicaciones duplicadas.
 >
 > Migración manual (sube el historial local a Railway):
 >
@@ -106,8 +105,8 @@ trending2Tweet/
 ├── src/
 │   ├── config.py           ← Configuración centralizada
 │   ├── llm_client.py       ← Cliente para generar tweets con LLM
-│   ├── obsidian_vault.py   ← Gestión de bóveda de Obsidian
-│   └── card_generator.py   ← Generador de tarjetas visuales
+│   ├── obsidian_vault.py   ← Gestión de borradores en Obsidian
+│   └── publishing.py       ← Publicación y registro compartidos
 ├── sources/
 │   ├── github_client.py    ← Cliente de GitHub API
 │   └── hacker_news_client.py ← Cliente de Hacker News
@@ -148,20 +147,6 @@ Editar en `.env`:
 LLM_API_KEY=tu-api-key
 LLM_BASE_URL=https://api.openai.com/v1
 LLM_MODEL=gpt-4o-mini
-```
-
-### Cambiar el branding de las tarjetas
-
-Editar en `.env`:
-```bash
-CARD_BRAND_NAME=tu_usuario
-```
-
-### Desactivar imágenes
-
-Editar en `.env`:
-```bash
-ENABLE_TWEET_IMAGES=false
 ```
 
 ## Licencia

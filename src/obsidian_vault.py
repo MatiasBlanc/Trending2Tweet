@@ -10,8 +10,6 @@ from typing import Optional
 
 from src import config
 
-ATTACHMENTS_FOLDER = "attachments"
-
 
 def _sanitize_filename(texto: str, max_length: int = 50) -> str:
     """Sanitiza un texto para usar como nombre de archivo."""
@@ -35,39 +33,27 @@ def _get_vault_path() -> Optional[Path]:
     return vault_path
 
 
-def guardar_imagen_vault(
-    image_bytes: bytes,
-    nombre_archivo: str,
-    source: str = "t2t",
-) -> Optional[str]:
-    """Guarda una imagen en la carpeta de attachments de la bóveda.
+def _get_borradores_path(crear: bool = False) -> Optional[Path]:
+    """Obtiene la carpeta única de borradores de la bóveda.
+
+    Args:
+        crear: Crea la carpeta si todavía no existe.
 
     Returns:
-        Ruta relativa al vault de la imagen guardada, o None si falló.
+        Ruta de la carpeta de borradores o None si la bóveda no está disponible.
     """
     vault_path = _get_vault_path()
     if not vault_path:
         return None
 
-    attachments_dir = vault_path / ATTACHMENTS_FOLDER
-    attachments_dir.mkdir(parents=True, exist_ok=True)
-
-    safe_name = _sanitize_filename(nombre_archivo)
-    fecha = datetime.now().strftime("%Y-%m-%d")
-    filename = f"{fecha}_{safe_name}.png"
-    filepath = attachments_dir / filename
-
-    counter = 1
-    while filepath.exists():
-        filepath = attachments_dir / f"{fecha}_{safe_name}_{counter}.png"
-        counter += 1
-
-    try:
-        filepath.write_bytes(image_bytes)
-        return f"{ATTACHMENTS_FOLDER}/{filename}"
-    except Exception as e:
-        print(f"  ⚠️ Error guardando imagen: {e}")
+    borradores_path = vault_path / "Borradores"
+    if crear:
+        borradores_path.mkdir(parents=True, exist_ok=True)
+    elif not borradores_path.exists():
+        print(f"  ⚠️  Carpeta de borradores no encontrada: {borradores_path}")
         return None
+
+    return borradores_path
 
 
 def guardar_borrador(
@@ -81,24 +67,15 @@ def guardar_borrador(
     prompt_file: Optional[str] = None,
     template_estilo: Optional[str] = None,
     notas: Optional[str] = None,
-    imagen_path: Optional[str] = None,
 ) -> Optional[str]:
     """Guarda un tweet en la bóveda de Obsidian.
 
     Returns:
         Ruta del archivo creado, o None si no se pudo guardar.
     """
-    vault_path = _get_vault_path()
-    if not vault_path:
+    folder = _get_borradores_path(crear=True)
+    if not folder:
         return None
-    
-    # Determinar carpeta según el tipo de fuente
-    if source == "news":
-        folder = vault_path / "T2T" / "news"
-    else:
-        folder = vault_path / "T2T" / "github"
-    
-    folder.mkdir(parents=True, exist_ok=True)
     
     now = datetime.now()
     fecha = now.strftime("%Y-%m-%d")
@@ -115,7 +92,7 @@ def guardar_borrador(
     
     counter = 1
     while filepath.exists():
-        filepath = vault_path / f"{fecha}_{safe_title}_{counter}.md"
+        filepath = folder / f"{fecha}_{safe_title}_{counter}.md"
         counter += 1
     
     contenido = "---\n"
@@ -136,18 +113,12 @@ def guardar_borrador(
         contenido += f"prompt_file: {prompt_file}\n"
     if template_estilo:
         contenido += f"template: {template_estilo}\n"
-    if imagen_path:
-        contenido += f"imagen: {imagen_path}\n"
-    
     contenido += "---\n\n"
     
     if titulo:
         contenido += f"# {titulo}\n\n"
     elif repo_name:
         contenido += f"# {repo_name}\n\n"
-    
-    if imagen_path:
-        contenido += f"![Tarjeta]({imagen_path})\n\n"
     
     contenido += "## Tweet\n\n"
     contenido += f"{texto}\n\n"
@@ -182,12 +153,12 @@ def guardar_borrador(
 
 def listar_tweets() -> list[dict]:
     """Lista todos los tweets en la bóveda."""
-    vault_path = _get_vault_path()
-    if not vault_path:
+    borradores_path = _get_borradores_path()
+    if not borradores_path:
         return []
-    
+
     tweets = []
-    for md_file in vault_path.glob("**/*.md"):
+    for md_file in borradores_path.glob("**/*.md"):
         info = _parsear_frontmatter(md_file)
         if info:
             info["filepath"] = str(md_file)
@@ -263,26 +234,8 @@ def obtener_tweet_para_publicar(filepath: str) -> Optional[str]:
 
 
 def listar_borradores() -> list[dict]:
-    """Lista solo los tweets con status draft de la carpeta de borradores."""
-    vault_path = _get_vault_path()
-    if not vault_path:
-        return []
-    
-    # Buscar solo en la carpeta de borradores
-    borradores_path = vault_path / "T2T" / "borradores"
-    
-    if not borradores_path.exists():
-        print(f"  ⚠️  Carpeta de borradores no encontrada: {borradores_path}")
-        return []
-    
-    tweets = []
-    for md_file in borradores_path.glob("**/*.md"):
-        info = _parsear_frontmatter(md_file)
-        if info:
-            info["filepath"] = str(md_file)
-            tweets.append(info)
-    
-    return sorted(tweets, key=lambda x: x.get("date", ""), reverse=True)
+    """Lista los tweets con estado draft de la carpeta de borradores."""
+    return [tweet for tweet in listar_tweets() if tweet.get("status") == "draft"]
 
 
 def obtener_tweet_por_id(tweet_id: str) -> Optional[dict]:
