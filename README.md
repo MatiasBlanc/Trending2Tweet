@@ -28,11 +28,13 @@ cp .env.example .env
 
 Variables requeridas:
 - `GITHUB_TOKEN`: Token de GitHub API
-- `LLM_API_KEY`: API key del LLM (OpenAI compatible)
-- `LLM_BASE_URL`: URL base del LLM
-- `LLM_MODEL`: Modelo a usar
+- `LLM_API_KEY`, `LLM_BASE_URL` y `LLM_MODEL`: modelo que escribe el tweet final
+- `INPUT_LLM_API_KEY`, `INPUT_LLM_BASE_URL` y `INPUT_LLM_MODEL`: modelo que
+  prepara la información antes de redactar (opcional y más económico)
 - `TWITTER_API_KEY`, `TWITTER_API_SECRET`, `TWITTER_ACCESS_TOKEN` y `TWITTER_ACCESS_SECRET`: Credenciales de X
-- `OBSIDIAN_VAULT_PATH`: Ruta de la bóveda para los borradores manuales
+
+Obsidian solo se usa para los bocetos del flujo manual; para Railway puedes
+dejar `OBSIDIAN_VAULT_PATH` vacío.
 
 ## Uso
 

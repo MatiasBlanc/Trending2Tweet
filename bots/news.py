@@ -75,24 +75,29 @@ def construir_mensaje_usuario(story: dict) -> str:
     )
 
 
-def main() -> None:
-    """Ejecución principal del bot de noticias."""
+def main() -> bool:
+    """Ejecuta el bot de noticias y devuelve si publicó un tweet.
+
+    Returns:
+        True cuando se publica y registra una noticia; False cuando no hay
+        una historia válida o ninguna publicación termina correctamente.
+    """
     print("━" * 50)
     print("  Tech News Bot")
     print("━" * 50)
 
     try:
         if config.NEWS_SOURCE == "best":
-            stories = get_best_stories(limit=config.NEWS_LIMIT)
+            stories = get_best_stories(limit=config.NEWS_FETCH_LIMIT)
         else:
-            stories = get_top_stories(limit=config.NEWS_LIMIT)
+            stories = get_top_stories(limit=config.NEWS_FETCH_LIMIT)
     except Exception as e:
         print(f"Error consultando noticias: {e}")
         sys.exit(1)
 
     if not stories:
         print("No se encontraron noticias nuevas.")
-        return
+        return False
 
     print(f"  Noticias encontradas: {len(stories)}")
 
@@ -125,10 +130,11 @@ def main() -> None:
             tweet_text = tweet_text[:277] + "..."
 
         if publicar_y_registrar(story["id"], "news", tweet_text):
-            return
+            return True
 
     print("\n  ⚠️  No hay noticias nuevas para procesar.")
+    return False
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(0 if main() else 1)

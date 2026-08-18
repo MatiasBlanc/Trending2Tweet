@@ -4,19 +4,24 @@ NOTICIA: descrita en el mensaje del usuario.
 
 ESTILO DE APERTURA: {estilo_gancho}
 
-FORMATO:
-1. Primera línea: una afirmación provocadora sobre la forma de escribir o elegir un teclado.
-2. 1-2 líneas: el mecanismo, diseño o dato concreto que sustenta la afirmación.
-3. Última línea: una pregunta que invite a la comunidad a debatir.
+QUÉ HACER:
+1. Primera línea: una afirmación que nombre el producto o tecnología del teclado y plantee una postura clara sobre la forma de escribir o elegir.
+2. 1-2 líneas con el mecanismo, diseño o dato técnico real del brief (layout, switches, firmware QMK/VIA, columna estricta, etc.).
+3. Última línea: una pregunta concreta que invite a la comunidad a debatir.
 
-REGLAS:
-- Máximo 4-5 líneas.
-- No resumas la noticia de forma genérica.
+QUÉ EVITAR:
+- No resumas la noticia de forma genérica ni copies el titular.
 - No inventes datos ni menciones puntuación, comentarios o popularidad.
-- No uses URLs, markdown ni hashtags.
-- No uses primera persona.
-- Explica los términos técnicos si no son imprescindibles.
-- Tono directo, especializado y accesible.
-- Devuelve solo el tweet.
+- No uses URLs, markdown, hashtags ni primera persona.
+- No hables del teclado como un simple accesorio de oficina.
+- Explica términos técnicos si no son imprescindibles.
+
+VOZ:
+- Tono directo, especializado y accesible. El lector debe saber de qué teclado o tecnología hablas en la primera línea.
+
+EJEMPLO DE BUEN TONO (una forma posible, no una plantilla):
+"QMK 0.24 añade soporte nativo para split periférica, así que dejarás de depender de cables y firmwares rotos. La curva de configuración sigue siendo empinada para el que no sabe compilar. ¿Merece la pena frente a VIA?"
+
+Devuelve solo el tweet.
 
 {limite}
