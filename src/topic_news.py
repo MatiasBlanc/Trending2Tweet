@@ -21,7 +21,9 @@ def obtener_historias_tematicas(keywords: Sequence[str]) -> list[dict]:
     Raises:
         requests.RequestException: Si Hacker News no está disponible.
     """
-    cantidad_a_buscar = max(config.NEWS_LIMIT * 5, 20)
+    # Busca un pool amplio: los temas de nicho (teclados, código) rara vez
+    # aparecen en las top 20-25 de Hacker News.
+    cantidad_a_buscar = max(config.NEWS_LIMIT * 20, 100)
     if config.NEWS_SOURCE == "best":
         historias = get_best_stories(limit=cantidad_a_buscar)
     else:

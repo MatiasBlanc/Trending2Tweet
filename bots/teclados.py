@@ -25,6 +25,10 @@ KEYWORDS = (
     "dvorak",
     "touch typing",
     "stenography",
+    "typing",
+    "ergonomic",
+    "mechanical",
+    "typewriter",
 )
 
 ESTILO_GANCHO = (
