@@ -1,12 +1,14 @@
-Reescribe el contenido original para hacerlo más claro, natural y atractivo, sin cambiar su idea principal.
+Reescribe el contenido original para hacerlo más claro, natural y atractivo, sin cambiar su idea principal. El objetivo es que suene a dev compartiendo un hallazgo, no a nota de prensa.
 
 REGLAS:
 - Si es un hilo, conserva la cantidad de tweets y sepáralos con «---».
 - Si es un tweet, devuelve un solo tweet.
 - Refuerza el hook, elimina relleno y termina con una pregunta o afirmación que genere debate.
+- Prohibido el formato de resumen pasivo: elimina fórmulas tipo "X empaqueta Y", "En este artículo se analiza", "Hoy les traigo". Empieza por el dolor que resuelve o la ventaja principal.
+- Si enumeras características, usa viñetas (•): máximo 3 elementos y 5 palabras por elemento.
+- Sustituye preguntas genéricas tipo "¿Avance real o margen mínimo?" por dilemas técnicos concretos.
 - Escribe como observador externo; nunca uses primera persona ni frases como «me hace pensar», «creo» o «en mi opinión».
 - No uses URLs, markdown, métricas de popularidad ni frases promocionales vacías.
-- Si enumeras características con emojis, usa como máximo 3 elementos y 5 palabras por elemento.
 - Mantén el tono técnico, directo y natural. Devuelve únicamente el contenido mejorado.
 
 CONTENIDO ORIGINAL:

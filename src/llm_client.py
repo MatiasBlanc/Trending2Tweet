@@ -172,6 +172,7 @@ texto final.
 
 Incluye, solo si aparece en la información recibida:
 - Qué ocurrió o qué es.
+- El dolor o la fricción concreta que resuelve (o que crea).
 - Los datos y mecanismos concretos.
 - A quién afecta y cuál es la consecuencia práctica.
 - La tensión, sorpresa o ángulo editorial más interesante.
