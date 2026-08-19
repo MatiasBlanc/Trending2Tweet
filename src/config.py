@@ -77,8 +77,8 @@ else:
 LLM_SETTINGS = OUTPUT_LLM_SETTINGS
 
 # Control de longitud de tweets
-# true = 280 caracteres (X estándar, evita rechazos y fuerza tweets concisos)
-FORCE_280_CHAR_TWEET: bool = os.getenv("FORCE_280_CHAR_TWEET", "true").lower() == "true"
+# false = sin límite de 280 caracteres (X Premium permite tweets más largos)
+FORCE_280_CHAR_TWEET: bool = os.getenv("FORCE_280_CHAR_TWEET", "false").lower() == "true"
 
 # Scheduler
 PUBLISH_TIMEZONE_OFFSET: int = int(os.getenv("PUBLISH_TIMEZONE_OFFSET", "-4"))
