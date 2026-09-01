@@ -13,6 +13,20 @@
 
 *Descubre tendencias en GitHub, Hacker News y Reddit, genera retos de código interactivos, edita cada nota con tu voz en Obsidian y publica con total control.*
 
+<br/>
+
+<details>
+  <summary>🇺🇸 <b>Click here to read in English / Read in English</b></summary>
+  <br/>
+
+  **Trending2Tweet** is a local-first CLI and TUI assistant that finds trending tech topics across GitHub, Hacker News, and Reddit, crafting high-impact tweets, quizzes, and threads directly into your Obsidian vault with LLMs. 100% private, human-in-the-loop, and zero cloud overhead.
+
+  ### 🎯 Key Highlights:
+  - 🔒 **100% Local & Private:** No external databases. Drafts live in local Markdown notes; deduplication history in SQLite (`metrics.db`).
+  - 📝 **Obsidian-Native:** Automatic tagging, Dataview-compatible YAML frontmatter, and smart auto-archiving.
+  - ⚡ **Multi-LLM Support:** OpenAI, DeepSeek, OpenRouter, and local models.
+</details>
+
 </div>
 
 ---
