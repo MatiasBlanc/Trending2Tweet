@@ -6,6 +6,7 @@
 [![Obsidian](https://img.shields.io/badge/Obsidian-Local--First-7C3AED?logo=obsidian&logoColor=white)](https://obsidian.md)
 [![LLM Support](https://img.shields.io/badge/LLM-OpenAI%20%7C%20DeepSeek%20%7C%20OpenRouter-orange)](https://platform.openai.com)
 [![Architecture](https://img.shields.io/badge/Architecture-Human--in--the--Loop-teal)](https://github.com/MatiasBlanc/Trending2Tweet)
+[![Made in Chile](https://madeinchile.tech/badge.svg)](https://madeinchile.tech)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 **Tu asistente local para crear, pulir y organizar contenido técnico de alto valor para X (Twitter) directamente en tu bóveda de Obsidian.**
