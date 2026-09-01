@@ -32,30 +32,51 @@ def _crear_cliente_v2() -> tweepy.Client:
     )
 
 
+def _separar_hilo(texto: str) -> list[str]:
+    """Separa un hilo usando el delimitador que utiliza la bóveda."""
+    partes = [parte.strip() for parte in texto.split("\n---\n")]
+    return [parte for parte in partes if parte] or [texto.strip()]
+
+
 def publicar_tweet(texto: str) -> dict:
-    """Publica un tweet de texto en Twitter.
+    """Publica un tweet o un hilo de texto en Twitter/X.
 
     Args:
-        texto: Contenido del tweet.
+        texto: Contenido del tweet; los hilos usan ``\\n---\\n`` entre partes.
 
     Returns:
-        Diccionario con el ID del tweet y datos adicionales.
+        Diccionario con el ID del primer tweet, todos los IDs y datos adicionales.
 
     Raises:
-        Exception: Si hay error en la publicación.
+        ValueError: Si el contenido está vacío.
+        Exception: Si hay error durante la publicación.
     """
+    if not texto.strip():
+        raise ValueError("No se puede publicar un tweet vacío.")
+
     cliente_v2 = _crear_cliente_v2()
+    partes = _separar_hilo(texto)
+    ids: list[str] = []
 
     try:
-        respuesta = cliente_v2.create_tweet(text=texto)
-        tweet_id = respuesta.data["id"]
-        print(f"  ✅ Tweet publicado: {tweet_id}")
-        
+        for parte in partes:
+            parametros: dict[str, str] = {"text": parte}
+            if ids:
+                parametros["in_reply_to_tweet_id"] = ids[-1]
+            respuesta = cliente_v2.create_tweet(**parametros)
+            if not respuesta.data or "id" not in respuesta.data:
+                raise RuntimeError("X no devolvió el ID del tweet publicado.")
+            ids.append(respuesta.data["id"])
+
+        etiqueta = "Hilo publicado" if len(ids) > 1 else "Tweet publicado"
+        print(f"  ✅ {etiqueta}: {ids[0]}")
         return {
-            "tweet_id": tweet_id,
+            "tweet_id": ids[0],
+            "tweet_ids": ids,
             "texto": texto,
             "fecha": datetime.now().isoformat(),
         }
-    except Exception as e:
-        print(f"  ❌ Error publicando tweet: {e}")
+    except Exception as error:
+        detalle = f" ({len(ids)} parte(s) publicada(s))" if ids else ""
+        print(f"  ❌ Error publicando en X{detalle}: {error}")
         raise

@@ -15,10 +15,15 @@ venv/
 # Database
 *.db
 *.sqlite
+*.db-journal
+*.db-wal
+*.db-shm
 
 # Logs
 logs/
 *.log
+.coverage
+.pytest_cache/
 
 # IDE
 .vscode/

@@ -18,7 +18,16 @@ def _leer_prompt(nombre_archivo: str, limite_texto: str) -> str:
     Returns:
         Plantilla del prompt con el límite insertado.
     """
-    plantilla = Path(nombre_archivo).read_text(encoding="utf-8")
+    prompt_path = Path(nombre_archivo)
+    if not prompt_path.is_absolute():
+        prompt_path = Path(__file__).resolve().parent.parent / prompt_path
+
+    try:
+        plantilla = prompt_path.read_text(encoding="utf-8")
+    except OSError as error:
+        raise FileNotFoundError(
+            f"No se pudo leer la plantilla de prompt '{prompt_path}': {error}"
+        ) from error
     return plantilla.replace("{limite}", limite_texto)
 
 

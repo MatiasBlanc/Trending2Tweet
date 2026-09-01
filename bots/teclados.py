@@ -1,15 +1,14 @@
-"""Bot de posts sobre teclados y periféricos usando Reddit.
+"""Bot de Teclados y Periféricos: obtiene posts de Reddit y guarda borradores en Obsidian.
 
-Uso: python -m bots.teclados
+Uso:
+    python -m bots.teclados [cantidad]
 """
 
 import sys
 
-from src import config
 from sources.reddit_client import obtener_posts_teclados
-from src.llm_client import generate_tweet
-from db.metrics_db import is_processed
-from src.publishing import publicar_y_registrar
+from src import config
+from src.engine import run_pipeline
 
 PROMPT_FILE = "prompts/prompt_teclados.txt"
 
@@ -18,126 +17,58 @@ ESTILO_GANCHO = (
     "o la personalización. Evita tratar el teclado como un simple accesorio."
 )
 
-# Posts de fotos pura (builds sin texto) dan menos material. Un selftext largo
-# es ideal; un título largo y descriptivo suele bastar para un build con nombre.
 _MIN_LARGO_TITULO = 40
 _MIN_LARGO_TEXTO = 80
-
-# Títulos genéricos de showcase que no aportan material para un tweet.
 _TITULOS_INFORMATIVOS = (
-    "build",
-    "keyboard",
-    "keycap",
-    "switch",
-    "firmware",
-    "layout",
-    "ergo",
-    "split",
-    "colemak",
-    "dvorak",
-    "qmk",
-    "via",
-    "corne",
-    "alice",
-    "tofu",
-    "mtnu",
-    "susuwatari",
-    "review",
-    "guide",
-    "compare",
-    "first build",
-    "typing",
+    "build", "keyboard", "keycap", "switch", "firmware", "layout",
+    "ergo", "split", "colemak", "dvorak", "qmk", "via", "corne",
+    "alice", "tofu", "mtnu", "susuwatari", "review", "guide", "compare", "typing",
 )
 
 
-def _post_con_sustancia(post: dict) -> bool:
-    """Determina si un post tiene material suficiente para un tweet.
-
-    Args:
-        post: Publicación normalizada de Reddit.
-
-    Returns:
-        True si el post tiene texto descriptivo o un título informativo.
-    """
-    if len(post["texto"]) >= _MIN_LARGO_TEXTO:
+def _tiene_sustancia(post: dict) -> bool:
+    if len(post.get("texto", "")) >= _MIN_LARGO_TEXTO:
         return True
-    titulo = post["title"].lower()
-    return len(post["title"]) >= _MIN_LARGO_TITULO and any(
-        palabra in titulo for palabra in _TITULOS_INFORMATIVOS
-    )
+    t = post.get("title", "").lower()
+    return len(t) >= _MIN_LARGO_TITULO and any(p in t for p in _TITULOS_INFORMATIVOS)
 
 
-def construir_mensaje_usuario(post: dict) -> str:
-    """Construye el contexto que recibirá el modelo para un post de Reddit.
+def _fetch_posts() -> list[dict]:
+    posts = obtener_posts_teclados(limite_por_sub=10)
+    return [p for p in posts if _tiene_sustancia(p)]
 
-    Args:
-        post: Publicación con título, autor, texto y subreddit.
 
-    Returns:
-        Texto con los datos relevantes del post.
-    """
+def _format_message(post: dict) -> str:
     msg = (
         f"Publicación de r/{post['subreddit']}\n"
         f"Título: {post['title']}\n"
         f"Autor: {post['author']}"
     )
-    if post["texto"]:
+    if post.get("texto"):
         msg += f"\n\nTexto de la publicación:\n{post['texto']}"
     return msg
 
 
-def main() -> bool:
-    """Ejecuta el bot de teclados y devuelve si publicó un tweet.
-
-    Returns:
-        True cuando se publica y registra un post; False si no hay posts
-        válidos o ninguna publicación termina correctamente.
-    """
-    print("━" * 50)
-    print("  ⌨️  Teclados Bot (Reddit)")
-    print("━" * 50)
-
-    try:
-        posts = obtener_posts_teclados(limite_por_sub=10)
-    except Exception as error:
-        print(f"  ❌ Error consultando Reddit: {error}")
-        sys.exit(1)
-
-    if not posts:
-        print("  ⚠️  No se encontraron publicaciones.")
-        return False
-
-    print(f"  Posts encontrados: {len(posts)}")
-
-    for post in posts:
-        if is_processed(post["id"]):
-            print(f"\n  ⏭  Ya publicada: {post['title'][:60]}...")
-            continue
-
-        if not _post_con_sustancia(post):
-            print(f"\n  ⏭  Sin material: {post['title'][:60]}...")
-            continue
-
-        print(f"\n  📰 Post: {post['title'][:60]}...")
-        try:
-            tweet_text = generate_tweet(
-                PROMPT_FILE,
-                construir_mensaje_usuario(post),
-                variables={"estilo_gancho": ESTILO_GANCHO},
-            )
-        except Exception as error:
-            print(f"  ❌ Error generando tweet: {error}")
-            continue
-
-        if config.FORCE_280_CHAR_TWEET and len(tweet_text) > 280:
-            tweet_text = tweet_text[:277] + "..."
-
-        if publicar_y_registrar(post["id"], "teclados", tweet_text):
-            return True
-
-    print("\n  ⚠️  No se pudo publicar ninguna publicación.")
-    return False
+def main() -> None:
+    limit = (
+        min(int(sys.argv[1]), config.MAX_GENERATION_LIMIT)
+        if len(sys.argv) > 1 and sys.argv[1].isdigit()
+        else 1
+    )
+    run_pipeline(
+        bot_name="teclados",
+        display_name="⌨️  Teclados Bot (Reddit - Obsidian)",
+        category="teclado",
+        prompt_file=PROMPT_FILE,
+        fetch_items=_fetch_posts,
+        format_user_message=_format_message,
+        get_item_id=lambda p: p["id"],
+        get_title=lambda p: p["title"],
+        get_url=lambda p: p.get("url") or "",
+        get_variables=lambda p: {"estilo_gancho": ESTILO_GANCHO},
+        limit=limit,
+    )
 
 
 if __name__ == "__main__":
-    raise SystemExit(0 if main() else 1)
+    main()

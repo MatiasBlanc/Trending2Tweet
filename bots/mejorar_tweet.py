@@ -16,91 +16,132 @@ from typing import Optional
 from src import config
 from src.llm_client import generate_tweet
 from src.obsidian_vault import (
-    listar_borradores,
+    listar_tweets_boveda,
     obtener_tweet_por_id,
     agregar_update_tweet,
+    _get_twitter_vault_path,
 )
 
 PROMPT_FILE = "prompts/prompt_mejorar_tweet.txt"
 
 
-def mostrar_lista_borradores(borradores: list[dict]) -> None:
-    """Muestra la lista de borradores disponibles."""
-    print("\n" + "━" * 60)
-    print("  📋 BORRADORES DISPONIBLES")
-    print("━" * 60)
+def mostrar_lista_tweets(tweets: list[dict], filtro: str = "todos") -> None:
+    """Muestra la lista de tweets disponibles organizados por estado y ubicación."""
+    print("\n" + "━" * 78)
+    print(f"  📋 TWEETS EN LA BÓVEDA DE TWITTER (Filtro: {filtro.upper()})")
+    print("━" * 78)
 
-    if not borradores:
-        print("  No se encontraron borradores con status 'draft'.")
-        print("  Crea tweets manuales en tu bóveda de Obsidian primero.")
-        print("━" * 60)
+    if not tweets:
+        print("  No se encontraron tweets con contenido para mostrar con este filtro.")
+        print("━" * 78)
         return
 
-    print(f"  {'#':<4} {'ID':<20} {'Título':<35}")
-    print("  " + "─" * 58)
+    print(f"  {'#':<4} {'Estado':<12} {'Ubicación':<16} {'Título':<32} {'Chars':<8}")
+    print("  " + "─" * 74)
 
-    for i, borrador in enumerate(borradores, 1):
-        # Obtener ID (item_id o nombre de archivo sin extensión)
-        item_id = borrador.get("item_id", "")
-        if not item_id:
-            item_id = Path(borrador["filepath"]).stem
+    for i, t in enumerate(tweets, 1):
+        status_label = "📝 draft" if t.get("status") == "draft" else "🚀 publicado"
+        ubicacion = t.get("ubicacion", "twitter/")
+        if len(ubicacion) > 15:
+            ubicacion = ubicacion[:13] + ".."
 
-        # Obtener título
-        titulo = borrador.get("titulo", "")
-        if not titulo:
-            titulo = borrador.get("filename", "Sin título").replace(".md", "")
+        titulo = t.get("titulo") or t.get("title") or t.get("filename", "Sin título").replace(".md", "")
+        if len(titulo) > 30:
+            titulo = titulo[:27] + "..."
 
-        # Truncar título si es muy largo
-        if len(titulo) > 33:
-            titulo = titulo[:30] + "..."
+        chars = f"{t.get('char_count', len(t.get('tweet_text', '')))}c"
 
-        print(f"  {i:<4} {item_id:<20} {titulo:<35}")
+        print(f"  {i:<4} {status_label:<12} {ubicacion:<16} {titulo:<32} {chars:<8}")
 
-    print("━" * 60)
+    print("━" * 78)
 
 
-def obtener_seleccion_usuario(borradores: list[dict]) -> Optional[dict]:
-    """Obtiene la selección del usuario."""
+def obtener_seleccion_usuario(todos_los_tweets: list[dict]) -> Optional[dict]:
+    """Obtiene la selección del usuario con soporte de filtros rápidos y búsqueda."""
+    tweets_visibles = list(todos_los_tweets)
+    filtro_actual = "todos"
+
     while True:
-        print("\n  💡 Escribe el ID del tweet que quieres mejorar")
-        print("     (o 'q' para salir)")
+        print("\n  💡 Opciones:")
+        print("     • Escribe el número (#) o ID/título del tweet que deseas mejorar")
+        print("     • Filtros: [b] borradores | [p] publicados | [t] todos")
+        print("     • O 'q' para salir")
         print()
 
-        seleccion = input("  > ").strip()
-
-        if seleccion.lower() in ("q", "quit", "exit", "salir"):
+        try:
+            seleccion = input("  > ").strip()
+        except (KeyboardInterrupt, EOFError):
             print("\n  👋 ¡Hasta luego!")
             return None
 
-        # Buscar por número de lista
+        if not seleccion:
+            continue
+
+        sel_lower = seleccion.lower()
+
+        if sel_lower in ("q", "quit", "exit", "salir"):
+            print("\n  👋 ¡Hasta luego!")
+            return None
+
+        # Filtros rápidos
+        if sel_lower in ("b", "borrador", "borradores", "draft", "drafts"):
+            tweets_visibles = [t for t in todos_los_tweets if t.get("status") == "draft"]
+            filtro_actual = "borradores"
+            mostrar_lista_tweets(tweets_visibles, filtro=filtro_actual)
+            continue
+        elif sel_lower in ("p", "publicado", "publicados", "pub", "published"):
+            tweets_visibles = [t for t in todos_los_tweets if t.get("status") == "published"]
+            filtro_actual = "publicados"
+            mostrar_lista_tweets(tweets_visibles, filtro=filtro_actual)
+            continue
+        elif sel_lower in ("t", "todo", "todos", "all"):
+            tweets_visibles = list(todos_los_tweets)
+            filtro_actual = "todos"
+            mostrar_lista_tweets(tweets_visibles, filtro=filtro_actual)
+            continue
+
+        # Buscar por número de lista en la vista actual
         if seleccion.isdigit():
             idx = int(seleccion) - 1
-            if 0 <= idx < len(borradores):
-                return borradores[idx]
+            if 0 <= idx < len(tweets_visibles):
+                elegido = tweets_visibles[idx]
+                if not elegido.get("tweet_text", "").strip():
+                    print(f"  ⚠️  El archivo '{elegido.get('filename')}' está vacío (sin texto de tweet para mejorar).")
+                    continue
+                return elegido
             else:
-                print(f"  ⚠️  Número fuera de rango (1-{len(borradores)})")
+                print(f"  ⚠️  Número fuera de rango (1-{len(tweets_visibles)})")
                 continue
 
-        # Buscar por ID
-        tweet = obtener_tweet_por_id(seleccion)
+        # Buscar por ID, filename o título en toda la bóveda
+        tweet = obtener_tweet_por_id(seleccion, en_toda_la_boveda=True)
         if tweet:
+            if not tweet.get("tweet_text", "").strip():
+                print(f"  ⚠️  El archivo '{tweet.get('filename')}' no contiene texto de tweet para mejorar.")
+                continue
             return tweet
 
-        print(f"  ⚠️  No se encontró tweet con ID: {seleccion}")
-        print("     Intenta con el ID mostrado en la lista")
+        print(f"  ⚠️  No se encontró ningún tweet con: '{seleccion}'")
+        print("     Intenta con el número (#), ID o parte del título mostrado en la lista.")
 
 
 def mostrar_tweet_actual(tweet: dict) -> None:
     """Muestra el tweet actual antes de mejorarlo."""
     tweet_text = tweet.get("tweet_text", "No se pudo extraer el texto")
     titulo = tweet.get("titulo", tweet.get("filename", "Sin título"))
+    rel_path = tweet.get("relative_path") or tweet.get("filename", "")
+    status_label = "📝 Borrador" if tweet.get("status") == "draft" else "🚀 Publicado"
 
     print("\n" + "━" * 60)
     print("  📝 TWEET SELECCIONADO")
     print("━" * 60)
-    print(f"  Título: {titulo}")
-    print(f"  Fuente: {tweet.get('source', 'manual')}")
+    print(f"  Título:     {titulo}")
+    print(f"  Archivo:    {rel_path}")
+    print(f"  Estado:     {status_label}")
+    print(f"  Fuente:     {tweet.get('source', 'manual')}")
     print(f"  Caracteres: {len(tweet_text)}")
+    if tweet.get("has_update"):
+        print("  ℹ️  (Tiene sección 'Update' previa; se usará como base para mejorar)")
     print("─" * 60)
     print("\n  Texto actual:")
     print()
@@ -275,11 +316,11 @@ def mostrar_comparacion(original: str, mejorado: str) -> None:
 def main() -> None:
     """Ejecución principal del bot de mejora de tweets."""
     print("\n" + "━" * 60)
-    print("  🚀 BOT DE MEJORA DE TWEETS")
+    print("  🚀 BOT DE MEJORA DE TWEETS (BÓVEDA COMPLETA)")
     print("━" * 60)
 
     # Verificar configuración
-    if not config.OBSIDIAN_VAULT_PATH:
+    if not config.OBSIDIAN_VAULT_PATH and not getattr(config, "TWITTER_VAULT_PATH", None):
         print("\n  ❌ Error: OBSIDIAN_VAULT_PATH no configurado")
         print("  Configura esta variable en .env con la ruta a tu bóveda")
         sys.exit(1)
@@ -289,34 +330,21 @@ def main() -> None:
         print("  Configura tu API key del LLM en .env")
         sys.exit(1)
 
-    # Cargar borradores
-    print("\n  📂 Cargando borradores desde Obsidian...")
-    borradores = listar_borradores()
+    vault_root = _get_twitter_vault_path()
+    print(f"\n  📂 Explorando bóveda de Twitter: {vault_root}")
+    tweets = listar_tweets_boveda(solo_con_texto=True, incluir_archivados=True)
 
-    if not borradores:
-        print("\n  ℹ️  No se encontraron borradores con status 'draft'.")
-        print("\n  Para crear borradores manuales:")
-        print("  1. Ve a tu bóveda de Obsidian")
-        print("  2. Crea un archivo .md con frontmatter:")
-        print("     ---")
-        print("     type: tweet")
-        print("     status: draft")
-        print("     source: manual")
-        print("     date: 2024-01-15T10:00:00")
-        print("     ---")
-        print("     ")
-        print("     # Título del tweet")
-        print("     ")
-        print("     ## Tweet")
-        print("     ")
-        print("     Tu texto del tweet aquí...")
-        print()
-        print("  3. O usa los bots existentes para generar borradores")
+    if not tweets:
+        print("\n  ℹ️  No se encontraron tweets con contenido en la bóveda.")
         sys.exit(0)
 
+    borradores_count = len([t for t in tweets if t.get("status") == "draft"])
+    publicados_count = len([t for t in tweets if t.get("status") == "published"])
+    print(f"  ✨ Total disponibles con contenido: {len(tweets)} ({borradores_count} borradores, {publicados_count} publicados)")
+
     # Mostrar lista y obtener selección
-    mostrar_lista_borradores(borradores)
-    tweet_seleccionado = obtener_seleccion_usuario(borradores)
+    mostrar_lista_tweets(tweets)
+    tweet_seleccionado = obtener_seleccion_usuario(tweets)
 
     if not tweet_seleccionado:
         sys.exit(0)
@@ -345,7 +373,7 @@ def main() -> None:
 
     # Confirmar guardado
     print("\n  ¿Deseas guardar esta mejora? (s/n)")
-    print("  (Se agregará una sección 'Update' al archivo)")
+    print("  (Se agregará o actualizará la sección '## Update' en el archivo)")
     guardar = input("  > ").strip().lower()
 
     if guardar in ("s", "si", "sí", "y", "yes"):
@@ -355,8 +383,9 @@ def main() -> None:
         )
 
         if exito:
+            rel_name = tweet_seleccionado.get("relative_path") or Path(tweet_seleccionado["filepath"]).name
             print("\n  ✅ ¡Tweet mejorado guardado exitosamente!")
-            print(f"  📂 Archivo: {Path(tweet_seleccionado['filepath']).name}")
+            print(f"  📂 Archivo: {rel_name}")
             print("\n  Próximos pasos:")
             print("  1. Abre el archivo en Obsidian")
             print("  2. Revisa la sección 'Update'")

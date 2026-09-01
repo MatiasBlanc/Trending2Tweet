@@ -1,102 +1,62 @@
 """Bot de GitHub Manual: genera borrador de tweet para un repo específico.
 
-Uso: python -m bots.github_manual user/repo
-Ejemplo: python -m bots.github_manual facebook/react
+Uso:
+    python -m bots.github_manual user/repo
+Ejemplo:
+    python -m bots.github_manual facebook/react
 """
 
 import sys
 from pathlib import Path
 
-import requests
-
-from src import config
-from sources.github_client import get_readme_content, GITHUB_API
+from sources.github_client import get_repo_info, get_readme_content
+from src.db import mark_as_processed, is_processed, remove_from_history
 from src.llm_client import generate_tweet
-from db.metrics_db import mark_as_processed, is_processed, remove_from_history
 from src.obsidian_vault import guardar_borrador
-from src.railway_sync import registrar_en_railway
 
 PROMPT_FILE = "prompts/prompt_github.txt"
 
 
-def obtener_info_repo(repo_name: str) -> dict:
-    """Obtiene información de un repositorio de GitHub."""
-    headers = {
-        "Accept": "application/vnd.github+json",
-        "Authorization": f"Bearer {config.GITHUB_TOKEN}",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
-
-    resp = requests.get(
-        f"{GITHUB_API}/repos/{repo_name}",
-        headers=headers,
-        timeout=15,
-    )
-
-    if resp.status_code == 404:
-        raise Exception(f"Repositorio '{repo_name}' no encontrado")
-    
-    resp.raise_for_status()
-    data = resp.json()
-
-    return {
-        "id": f"gh_{data['id']}",
-        "name": data["full_name"],
-        "description": data.get("description") or "Sin descripción",
-        "language": data.get("language") or "Desconocido",
-        "stars": data["stargazers_count"],
-        "html_url": data["html_url"],
-    }
-
-
-def construir_mensaje_usuario(repo: dict) -> str:
-    """Construye el mensaje para el LLM."""
+def _format_message(repo: dict) -> str:
     msg = (
         f"Repo: {repo['name']}\n"
         f"Descripción: {repo['description']}\n"
         f"Lenguaje: {repo['language']}\n"
         f"Stars: {repo['stars']}"
     )
-
-    readme_content = repo.get("readme_content")
-    if readme_content:
-        msg += f"\n\n--- README del repositorio ---\n{readme_content}\n--- Fin del README ---"
-
+    if repo.get("readme_content"):
+        msg += f"\n\n--- README del repositorio ---\n{repo['readme_content']}\n--- Fin del README ---"
     return msg
 
 
 def main() -> None:
-    """Ejecución principal del bot manual."""
     if len(sys.argv) < 2:
         print("Uso: python -m bots.github_manual user/repo")
         print("Ejemplo: python -m bots.github_manual facebook/react")
         sys.exit(1)
 
-    repo_name = sys.argv[1]
-
+    repo_name = sys.argv[1].strip()
     if "/" not in repo_name:
-        print(f"Error: '{repo_name}' no tiene formato user/repo")
+        print(f"Error: '{repo_name}' debe tener el formato user/repo")
         sys.exit(1)
 
     print("━" * 50)
-    print("  GitHub Manual Bot")
+    print("  🐙 GitHub Manual Bot")
     print("━" * 50)
     print(f"  Repo: {repo_name}")
 
     try:
-        repo = obtener_info_repo(repo_name)
+        repo = get_repo_info(repo_name)
     except Exception as e:
         print(f"  ❌ Error: {e}")
         sys.exit(1)
-    
-    # Verificar si ya fue procesado
+
     if is_processed(repo["id"]):
         print(f"\n  ⚠️  Este repo ya fue procesado anteriormente.")
         respuesta = input("  ¿Deseas regenerarlo? (s/n): ").strip().lower()
         if respuesta not in ("s", "si", "sí", "y", "yes"):
             print("  ℹ️  Operación cancelada.")
             sys.exit(0)
-        # Eliminar del historial para regenerar
         remove_from_history(repo["id"])
         print("  🔄 Regenerando tweet...")
 
@@ -108,13 +68,10 @@ def main() -> None:
     if readme:
         repo["readme_content"] = readme
         print(f"  ✅ README descargado ({len(readme)} caracteres)")
-    else:
-        print("  ⚠️  No se pudo descargar el README")
 
     print("\n  ✍️  Generando tweet...")
     try:
-        mensaje = construir_mensaje_usuario(repo)
-        tweet_text = generate_tweet(PROMPT_FILE, mensaje)
+        tweet_text = generate_tweet(PROMPT_FILE, _format_message(repo))
     except Exception as e:
         print(f"  ❌ Error generando tweet: {e}")
         sys.exit(1)
@@ -125,12 +82,13 @@ def main() -> None:
     print(tweet_text)
     print(f"{'━' * 50}")
 
-    print("\n  💾 Guardando borrador en Obsidian...")
+    print("\n  💾 Guardando borrador en Obsidian (categoría: github)...")
     filepath = guardar_borrador(
         texto=tweet_text,
+        categoria="github",
         source="github_manual",
         titulo=repo["name"],
-        url=repo["html_url"],
+        url=repo.get("url") or f"https://github.com/{repo['name']}",
         repo_name=repo["name"],
         repo_stars=repo["stars"],
         item_id=repo["id"],
@@ -138,22 +96,11 @@ def main() -> None:
     )
 
     if filepath:
-        print(f"\n{'━' * 50}")
-        print(f"  ✅ Borrador guardado en Obsidian")
-        print(f"  📂 Archivo: {Path(filepath).name}")
-
         mark_as_processed(repo["id"], "github_manual", texto=tweet_text[:100])
-        registrar_en_railway(repo["id"], "github_manual")
-
-        print(f"\n  Próximos pasos:")
-        print(f"  1. Abre Obsidian y revisa el tweet")
-        print(f"  2. Edita si quieres")
-        print(f"  3. Publica en Twitter cuando esté listo")
+        print(f"\n{'━' * 50}")
+        print(f"  ✅ Borrador guardado en Obsidian: {Path(filepath).name}")
+        print(f"  📂 Carpeta: github/")
         print(f"{'━' * 50}")
-    else:
-        print("\n  ⚠️ No se pudo guardar en Obsidian")
-        print("  Verifica que OBSIDIAN_VAULT_PATH esté configurado en .env")
-        sys.exit(1)
 
 
 if __name__ == "__main__":

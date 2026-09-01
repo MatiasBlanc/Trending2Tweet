@@ -1,167 +1,215 @@
-# Trending2Tweet
+# 🤖 Trending2Tweet
 
-Bot que genera tweets automáticos sobre repos de GitHub trending y noticias tech de Hacker News.
+<div align="center">
 
-## Instalación
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)](https://python.org)
+[![Obsidian](https://img.shields.io/badge/Obsidian-Ready-7C3AED?logo=obsidian&logoColor=white)](https://obsidian.md)
+[![LLM Support](https://img.shields.io/badge/LLM-OpenAI%20%7C%20DeepSeek%20%7C%20OpenRouter-orange)](https://platform.openai.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+**Tu asistente local para crear, pulir y gestionar contenido técnico para X (Twitter) directamente en tu bóveda de Obsidian.**
+
+*Genera tweets y retos de alto valor a partir de GitHub Trending, Hacker News y Reddit, edítalos con tranquilidad en Obsidian y publícalos cuando tú decidas.*
+
+</div>
+
+---
+
+## 💡 ¿Por qué Trending2Tweet?
+
+- **100% Manual y Bajo tu Control:** Sin bots autónomos publicando cosas sin revisar en tu cuenta. Tú eliges qué generar y cuándo publicar.
+- **Integrado con Obsidian:** Guarda cada tweet como una nota Markdown con metadatos estructurados (YAML frontmatter), enlaces a las fuentes y notas de contexto.
+- **Múltiples Fuentes de Inspiración:** GitHub Trending, repositorios específicos, debates de Hacker News, comunidades de periféricos y quizzes de código interactivos.
+- **Optimización con IA:** Herramienta integrada para mejorar tweets existentes y adaptarlos a formatos virales o hilos.
+- **Archivado Inteligente:** Mueve automáticamente a `archivados/` los tweets que marques como `status: published`.
+
+---
+
+## ⚡ Inicio Rápido (3 minutos)
+
+### 1. Clonar el repositorio y crear entorno virtual
 
 ```bash
-# Clonar repositorio
-git clone <url>
-cd trending2Tweet
+git clone https://github.com/MatiasBlanc/Trending2Tweet.git
+cd Trending2Tweet
 
-# Crear entorno virtual
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# venv\Scripts\activate   # Windows
+# Crear y activar entorno virtual
+python3 -m venv venv
+source venv/bin/activate  # En Windows: venv\Scripts\activate
 
 # Instalar dependencias
 pip install -r requirements.txt
 ```
 
-## Configuración
+### 2. Configurar variables de entorno
 
-Copiar `.env.example` a `.env` y configurar:
+Copia la plantilla de configuración:
 
 ```bash
 cp .env.example .env
 ```
 
-Variables requeridas:
-- `GITHUB_TOKEN`: Token de GitHub API
-- `LLM_API_KEY`, `LLM_BASE_URL` y `LLM_MODEL`: modelo que escribe el tweet final
-- `INPUT_LLM_API_KEY`, `INPUT_LLM_BASE_URL` y `INPUT_LLM_MODEL`: modelo que
-  prepara la información antes de redactar (opcional y más económico)
-- `TWITTER_API_KEY`, `TWITTER_API_SECRET`, `TWITTER_ACCESS_TOKEN` y `TWITTER_ACCESS_SECRET`: Credenciales de X
+Abre `.env` y añade tu clave de IA (OpenAI, DeepSeek o compatible) y la ruta a tu bóveda de Obsidian:
 
-Obsidian solo se usa para los bocetos del flujo manual; para Railway puedes
-dejar `OBSIDIAN_VAULT_PATH` vacío.
-
-## Uso
-
-### Bot Manual de GitHub
-Genera un tweet para un repo específico:
-```bash
-python -m bots.github_manual facebook/react
+```env
+# Mínimo imprescindible para funcionar:
+LLM_API_KEY=tu_api_key_aqui
+OBSIDIAN_VAULT_PATH=~/Obsidian/Twitter/bot/
 ```
 
-### Bot de GitHub Trending
-Genera tweets para repos trending:
-```bash
-python -m bots.github_trending
-```
+> 💡 **Nota:** Si no tienes OpenAI, puedes usar **DeepSeek** o cualquier proveedor compatible configurando `LLM_BASE_URL` y `LLM_MODEL`.
 
-### Bot de Noticias Tech
-Genera tweets para noticias de Hacker News:
-```bash
-python -m bots.news
-```
-
-### Bot de Mejora de Tweets
-Mejora tweets manuales con IA para hacerlos más virales:
-```bash
-python -m bots.mejorar_tweet
-```
-
-### Bots temáticos
-Generan y publican el primer tweet nuevo encontrado en Hacker News para cada tema:
-```bash
-python -m bots.codigo
-python -m bots.teclados
-```
-
-Para más detalles sobre el bot de mejora, ver [docs/mejorar-tweet.md](docs/mejorar-tweet.md).
-
-## Estructura de Obsidian
-
-Los bots automáticos publican directamente en X. Obsidian se utiliza
-únicamente para los borradores creados por los bots manuales:
-
-```
-Borradores/
-└── *.md
-```
-
-### Flujo automático
-
-El scheduler ejecuta los módulos de `bots/` en los horarios configurados.
-Después de publicar correctamente, cada elemento se registra en SQLite para
-evitar duplicados.
-
-### Flujo manual
-
-1. Ejecutar `bots.github_manual`.
-2. Revisar el archivo generado en `Borradores/`.
-3. Editarlo y publicarlo manualmente si corresponde.
-
-> `RAILWAY_SYNC_ENABLED` permite registrar en Railway los borradores
-> procesados localmente para evitar publicaciones duplicadas.
->
-> Migración manual (sube el historial local a Railway):
->
-> ```bash
-> python scripts/sync_local_to_railway.py
-> ```
-
-## Estructura del Proyecto
-
-```
-trending2Tweet/
-├── bots/
-│   ├── github_manual.py    ← Bot manual para repos específicos
-│   ├── github_trending.py  ← Bot automático para repos trending
-│   ├── news.py             ← Bot general de noticias Hacker News
-│   ├── codigo.py           ← Bot de noticias de programación
-│   ├── teclados.py         ← Bot de noticias sobre teclados
-│   └── mejorar_tweet.py    ← Bot para mejorar tweets manuales con IA
-├── src/
-│   ├── config.py           ← Configuración centralizada
-│   ├── llm_client.py       ← Cliente para generar tweets con LLM
-│   ├── obsidian_vault.py   ← Gestión de borradores en Obsidian
-│   └── publishing.py       ← Publicación y registro compartidos
-├── sources/
-│   ├── github_client.py    ← Cliente de GitHub API
-│   └── hacker_news_client.py ← Cliente de Hacker News
-├── db/
-│   └── metrics_db.py       ← Base de datos de métricas
-├── prompts/
-│   ├── prompt_github.txt      ← Prompt para tweets de GitHub
-│   ├── prompt_news.txt        ← Prompt para tweets de noticias
-│   ├── prompt_codigo.txt      ← Prompt para tweets de programación
-│   ├── prompt_teclados.txt    ← Prompt para tweets de teclados
-│   └── prompt_mejorar_tweet.txt ← Prompt para mejorar tweets
-├── docs/
-│   └── mejorar-tweet.md       ← Documentación del bot de mejora
-├── scripts/
-│   ├── run_manual.sh       ← Script para bot manual
-│   ├── sync_and_tui.sh     ← Script para ejecutar todos los bots
-│   └── setup_cron.sh       ← Configurar cron jobs
-└── .env.example            ← Ejemplo de variables de entorno
-```
-
-## Scripts de Shell
+### 3. ¡Listo! Ejecutar el panel interactivo
 
 ```bash
-# Ejecutar bot manual
-./scripts/run_manual.sh facebook/react
+python main.py
+```
 
-# Ejecutar todos los bots
+---
+
+## 🎮 Panel Interactivo
+
+Al ejecutar `python main.py` sin argumentos verás el menú principal interactivo:
+
+```text
+╭──────────────────────────────────────────────────────────────────────────╮
+│  🤖  TRENDING2TWEET                                                      │
+│  Panel de creación y revisión de contenido para Obsidian                 │
+│  📂 Bóveda: ~/Obsidian/Twitter/bot                                       │
+╰──────────────────────────────────────────────────────────────────────────╯
+
+  ✦ CREAR CONTENIDO
+   1. 🐙 GitHub Trending     repositorios nuevos con más actividad
+   2. 🐙 GitHub Manual       analizar un repositorio concreto
+   3. 📰 Tech News           noticias tecnológicas de Hacker News
+   4. 💻 Code News           historias y aprendizajes de programación
+   5. 🧩 Retos de Código     desafíos por lenguaje y dificultad
+   6. ⌨️  Teclados           publicaciones de periféricos desde Reddit
+
+  ✦ REVISAR Y GESTIONAR
+   7. ✨ Mejorar Tweet       pulir un tweet de la bóveda con IA
+   8. 📦 Archivar            mover publicaciones marcadas como publicadas
+   9. 🚀 Publicar en X       publicar un borrador después de revisarlo
+  10. 📊 Estadísticas        ver el estado de la bóveda
+
+   0. 👋 Salir
+```
+
+---
+
+## 🤖 Uso Directo por CLI
+
+Si prefieres ejecutar comandos directos o automatizar con atajos de terminal, puedes pasar los argumentos a `main.py` o invocar cada módulo:
+
+| Acción | Comando CLI directo | Comando por módulo |
+|---|---|---|
+| **GitHub Trending** | `python main.py github [cantidad]` | `python -m bots.github_trending [cantidad]` |
+| **GitHub Repo Específico** | `python main.py manual usuario/repo` | `python -m bots.github_manual usuario/repo` |
+| **Tech News (HN)** | `python main.py news [cantidad]` | `python -m bots.news [cantidad]` |
+| **Code News** | `python main.py codigo [cantidad]` | `python -m bots.codigo [cantidad]` |
+| **Retos de Código** | `python main.py retos [lenguaje] [cantidad] [dificultad]` | `python -m bots.retos [lenguaje] [cantidad] [dificultad]` |
+| **Teclados (Reddit)** | `python main.py teclado [cantidad]` | `python -m bots.teclados [cantidad]` |
+| **Mejorar Tweet** | `python main.py mejorar` | `python -m bots.mejorar_tweet` |
+| **Archivar Publicados** | `python main.py archivar` | `python -m bots.archivar` |
+| **Ver Estadísticas** | `python main.py stats` | — |
+
+### Ejemplos de uso rápido:
+
+```bash
+# Generar 2 tweets de repos trending en GitHub
+python main.py github 2
+
+# Analizar un repositorio en particular
+python main.py manual facebook/react
+
+# Generar un reto de Python en nivel difícil
+python main.py retos python 1 dificil
+
+# Ejecutar una pasada en lote de todas las categorías
 ./scripts/sync_and_tui.sh
-
-# Configurar cron jobs
-./scripts/setup_cron.sh
 ```
 
-## Personalización
+---
 
-### Cambiar el LLM
+## 📁 Estructura en Obsidian
 
-Editar en `.env`:
-```bash
-LLM_API_KEY=tu-api-key
-LLM_BASE_URL=https://api.openai.com/v1
-LLM_MODEL=gpt-4o-mini
+Los borradores se guardan directamente como archivos Markdown legibles en tu bóveda:
+
+```text
+~/Obsidian/Twitter/bot/
+├── github/      ← Repos trending y proyectos analizados
+├── news/        ← Noticias y debates de tecnología (Hacker News)
+├── codigo/      ← Tips de programación y retos técnicos
+├── teclado/     ← Builds, switches y periféricos (Reddit)
+└── archivados/  ← Tweets que ya fueron publicados en X
+    ├── github/
+    ├── news/
+    ├── codigo/
+    └── teclado/
 ```
 
-## Licencia
+### Formato de cada borrador:
 
-MIT
+Cada nota incluye Frontmatter YAML compatible con Dataview y plugins de Obsidian:
+
+```markdown
+---
+status: draft
+category: github
+source: github_trending
+titulo: "Repo Increíble"
+url: "https://github.com/..."
+created_at: 2026-09-01T15:00:00
+---
+
+Este es el texto del tweet generado por la IA listo para ser revisado y compartido.
+
+---
+## Notas
+- Contexto de la fuente, estrellas o debates relevantes.
+```
+
+---
+
+## 📦 Flujo de Archivado Automático
+
+Cuando publiques un tweet en X, simplemente cambia el frontmatter en tu nota de Obsidian:
+
+```yaml
+---
+status: published
+---
+```
+*(o añade `published: true`)*.
+
+El sistema detectará el cambio y moverá la nota automáticamente a la subcarpeta `archivados/<categoria>/` correspondiente:
+- Se ejecuta de fondo cada vez que generas nuevo contenido.
+- O manualmente con `python main.py archivar`.
+
+---
+
+## ⚙️ Configuración (`.env`)
+
+| Variable | Requerida | Por Defecto | Descripción |
+|---|:---:|:---:|---|
+| `LLM_API_KEY` | **Sí** | — | Clave de API de tu proveedor de LLM. |
+| `LLM_BASE_URL` | No | `https://api.openai.com/v1` | Endpoint compatible con OpenAI (DeepSeek, OpenRouter, Azure). |
+| `LLM_MODEL` | No | `gpt-4o-mini` | Modelo a utilizar (ej. `gpt-4o-mini`, `deepseek-chat`). |
+| `OBSIDIAN_VAULT_PATH` | No | `~/Obsidian/Twitter/bot/` | Ruta local donde se almacenarán las carpetas de borradores. |
+| `GITHUB_TOKEN` | No | — | Token de GitHub (evita límites de tasa al buscar repositorios). |
+| `FORCE_280_CHAR_TWEET` | No | `false` | `true` para limitar tweets a 280 caracteres; `false` para tweets largos de X Premium. |
+| `TWITTER_API_*` | No | — | Credenciales de X v2 (solo necesarias si quieres publicar desde el menú opción 9). |
+
+---
+
+## 🔒 Privacidad y Almacenamiento Local
+
+- **Tus notas son tuyas:** Todo se almacena en archivos Markdown estándar en tu sistema de archivos.
+- **Historial antifraude/antiduplicados:** Se registra únicamente un hash/ID local en un archivo SQLite (`metrics.db`) para no repetirte los mismos temas o repositorios.
+- **Sin telemetría ni servidores intermedios:** La aplicación solo se comunica con la API del LLM que configures y las APIs públicas de las fuentes (GitHub, Hacker News, Reddit).
+
+---
+
+## 📜 Licencia
+
+Distribuido bajo la Licencia MIT. Consulta el archivo [LICENSE](LICENSE) para más información.
