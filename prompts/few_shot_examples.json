@@ -1,0 +1,51 @@
+[
+  {
+    "id": "github_dolor_arquitectura",
+    "category": "github",
+    "context": "Un proyecto open source reduce la fricción de ejecutar una herramienta local y documenta sus perfiles y dependencias.",
+    "output": "Correr esta herramienta sin montar otro ecosistema alrededor: ahí está la decisión interesante.\n\n• Perfiles separados para distintos usos\n• Dependencias explícitas, no magia en segundo plano\n• La arquitectura prioriza el flujo local\n\n¿Prefieres un binario opinado o configurar cada pieza a mano?",
+    "editorial_note": "El gancho nombra el dolor antes que el repositorio; después aterriza la arquitectura en tres pruebas concretas."
+  },
+  {
+    "id": "github_mecanismo_tecnico",
+    "category": "github",
+    "context": "Una librería cambia una integración pesada por un flujo donde el código se inspecciona y adapta directamente.",
+    "output": "La parte valiosa no es otra capa de abstracción: es poder leer y cambiar la pieza que vas a ejecutar.\n\nEse diseño reduce el coste de depurar cuando el comportamiento por defecto deja de servir.\n\n¿Abstracción estable o código que puedas modificar sin pedir permiso?",
+    "editorial_note": "Una postura técnica clara funciona mejor que una ficha de características."
+  },
+  {
+    "id": "news_contraste",
+    "category": "news",
+    "context": "Una noticia anuncia una mejora de rendimiento, pero el cambio introduce una nueva decisión operativa para equipos técnicos.",
+    "output": "La mejora de rendimiento es la parte fácil de contar.\n\nLo que cambia para un equipo es la decisión operativa que aparece detrás: medir el coste real antes de activar el modo nuevo.\n\nLa pregunta útil no es si corre más rápido, sino dónde queda el cuello de botella.",
+    "editorial_note": "Contrasta la promesa visible con la consecuencia práctica y evita el tono de comunicado."
+  },
+  {
+    "id": "news_pregunta_senior",
+    "category": "news",
+    "context": "Una empresa presenta una función para desarrolladores cuyo valor depende de cómo se integra en el flujo existente.",
+    "output": "La demo resuelve el caso feliz.\n\nLa pregunta de producción es otra: ¿qué pasa cuando esta función falla a mitad del flujo y necesitas recuperar el estado?\n\nAhí se separa una comodidad de una herramienta fiable.",
+    "editorial_note": "La tensión nace de una restricción concreta, no de una pregunta abstracta."
+  },
+  {
+    "id": "codigo_mecanismo",
+    "category": "codigo",
+    "context": "Una decisión de implementación modifica cómo se mantiene software a largo plazo.",
+    "output": "El detalle que suele perderse en la discusión: esta decisión cambia quién paga el coste cuando el código crece.\n\nAl principio parece más lenta. Después evita que cada cambio tenga que atravesar la misma pieza frágil.\n\nLa métrica importante es el coste del siguiente cambio.",
+    "editorial_note": "Lleva la noticia a una consecuencia de mantenimiento que un developer puede reconocer."
+  },
+  {
+    "id": "codigo_postura",
+    "category": "codigo",
+    "context": "Dos enfoques técnicos resuelven el mismo problema con intercambios distintos.",
+    "output": "Elegir la opción más corta no siempre reduce complejidad.\n\nUna línea menos hoy puede significar más estado implícito, más casos límite y una depuración peor mañana.\n\nYo pagaría unas líneas extra por hacer visible el flujo.",
+    "editorial_note": "La toma de posición final invita a debatir una decisión concreta sin exagerar."
+  },
+  {
+    "id": "general_revision",
+    "category": "general",
+    "context": "Un hallazgo técnico tiene una ventaja específica y una limitación que conviene hacer visible.",
+    "output": "La ventaja está clara: elimina una fricción concreta.\n\nLa limitación también importa: si tu equipo necesita control fino, el camino corto puede quedarse corto.\n\nBuen candidato para probar; mala idea para adoptar sin medir.",
+    "editorial_note": "Presenta valor y límite en pocas líneas para conservar criterio editorial."
+  }
+]

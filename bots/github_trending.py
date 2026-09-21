@@ -6,7 +6,11 @@ Uso:
 
 import sys
 
-from sources.github_client import get_readme_content, get_trending_repos
+from sources.github_client import (
+    get_readme_content,
+    get_trending_repos,
+    is_signal_repo,
+)
 from src import config
 from src.engine import run_pipeline
 
@@ -14,11 +18,13 @@ PROMPT_FILE = "prompts/prompt_github.txt"
 
 
 def _fetch_repos() -> list[dict]:
-    repos = get_trending_repos(limit=30)
-    return [
-        r for r in repos
-        if r.get("description") != "Sin descripción" and r.get("stars", 0) < 50_000
-    ]
+    """Obtiene repos recientes y elimina señales obvias de ruido.
+
+    El cliente ya aplica el filtro antes de normalizar, pero repetirlo aquí
+    mantiene este bot seguro si se reemplaza el cliente por un adaptador propio.
+    """
+    repos = get_trending_repos(limit=config.GITHUB_FETCH_LIMIT)
+    return [repo for repo in repos if is_signal_repo(repo)]
 
 
 def _prepare_repo(repo: dict) -> dict:
@@ -33,7 +39,10 @@ def _format_message(repo: dict) -> str:
         f"Repo: {repo['name']}\n"
         f"Descripción: {repo['description']}\n"
         f"Lenguaje: {repo['language']}\n"
-        f"Stars: {repo['stars']}"
+        f"Stars: {repo['stars']}\n"
+        f"Forks: {repo.get('forks', 0)}\n"
+        f"Señal pública: {repo.get('signal_score', 'n/d')} "
+        f"({', '.join(repo.get('signal_reasons', []))})"
     )
     if repo.get("readme_content"):
         msg += f"\n\n--- README del repositorio ---\n{repo['readme_content']}\n--- Fin del README ---"
@@ -57,7 +66,14 @@ def main() -> None:
         get_title=lambda r: r["name"],
         get_url=lambda r: r.get("url") or f"https://github.com/{r['name']}",
         prepare_item=_prepare_repo,
-        get_metadata=lambda r: {"repo_name": r["name"], "repo_stars": r["stars"]},
+        get_metadata=lambda r: {
+            "repo_name": r["name"],
+            "repo_stars": r["stars"],
+            "notas": (
+                "Filtro de señal aplicado: "
+                + ", ".join(r.get("signal_reasons", []))
+            ),
+        },
         limit=limit,
     )
 

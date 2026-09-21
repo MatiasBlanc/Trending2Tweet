@@ -22,6 +22,8 @@
 La mayoría de bots de redes sociales generan spam genérico y publican sin supervisión. **Trending2Tweet** propone un enfoque distinto:
 
 > **La IA hace el trabajo pesado de investigación y síntesis; tú mantienes el criterio, la voz y el botón de publicación.**
+>
+> Generar solo crea un borrador local: nunca publica automáticamente en X. La publicación requiere que selecciones, revises y confirmes la nota.
 
 ```text
   [ 🐙 GitHub Trending ]    [ 📰 Hacker News ]    [ ⌨️ Reddit ]    [ 🧩 Retos ]
@@ -39,8 +41,9 @@ La mayoría de bots de redes sociales generan spam genérico y publican sin supe
                     [ 🚀 Publicar en X ] ──► [ 📦 Auto-Archivado ]
 ```
 
-- 🔒 **100% Local y Privado:** Sin bases de datos remotas ni dependencias en la nube. Tus borradores viven en tus archivos Markdown y tu historial antiduplicados en un SQLite local (`metrics.db`).
-- 📝 **Estructurado para Obsidian:** Cada tweet se guarda en su carpeta (`github/`, `news/`, `codigo/`, `teclado/`) con metadatos YAML compatibles con Dataview.
+- 🔒 **100% Local y Privado:** Sin bases de datos remotas, servidores MCP ni dependencias de infraestructura. Tus borradores viven en Markdown y el historial antiduplicados en un SQLite local (`metrics.db`).
+- 🧠 **Few-shot editorial local:** El motor usa muestras curadas por categoría para reforzar gancho, tono técnico y estructura sin copiar sus hechos. Puedes sustituirlas con `FEW_SHOT_EXAMPLES_PATH`.
+- 📝 **Estructurado para Obsidian:** Cada tweet se guarda en su carpeta (`github/`, `news/`, `codigo/`, `teclado/`) como `draft` y con `review_required: true`, listo para que lo edites antes de publicar.
 - 🧹 **Archivado Inteligente:** Al publicar o marcar una nota con `status: published`, se traslada automáticamente a `archivados/` manteniendo tu espacio de trabajo limpio.
 
 ---
@@ -57,9 +60,44 @@ cd Trending2Tweet
 python3 -m venv venv
 source venv/bin/activate  # En Windows: venv\Scripts\activate
 
-# Instalar dependencias
-pip install -r requirements.txt
+# Instalar el paquete y sus dependencias
+pip install .
+
+# Para desarrollo local, usa en su lugar:
+# pip install -e .
 ```
+
+También se puede instalar directamente desde GitHub sin clonar manualmente:
+
+```bash
+python3 -m pip install \
+  "git+https://github.com/MatiasBlanc/Trending2Tweet.git"
+```
+
+Esto instala los comandos `trending-to-tweet` y `t2t`; ambos apuntan al mismo CLI y funcionan igual.
+
+```bash
+t2t
+t2t --help
+t2t github 2
+```
+
+> Si ejecutas solo `pip install -r requirements.txt`, se instalan las dependencias pero no el comando. Usa `pip install .` o `pip install -e .` para registrar `t2t`.
+
+Este proyecto se publica como el paquete `trending-to-tweet` en PyPI y expone los comandos `trending-to-tweet` y `t2t`.
+
+Para preparar una publicación:
+
+```bash
+pip install -e ".[release]"
+python -m build
+python -m twine check dist/*
+python -m twine upload dist/*
+```
+
+Aumenta `version` en `pyproject.toml` antes de publicar una nueva versión. Usa un token de PyPI, nunca una contraseña ni credenciales dentro del repositorio.
+
+También existe `.github/workflows/publish.yml` para publicar automáticamente al crear un Release de GitHub usando Trusted Publishing. En PyPI debes registrar como editor confiable el repositorio `MatiasBlanc/Trending2Tweet`, el workflow `publish.yml` y el entorno `pypi`.
 
 ### 2. Configurar variables de entorno
 
@@ -80,43 +118,56 @@ LLM_MODEL=gpt-4o-mini # o deepseek/deepseek-chat
 OBSIDIAN_VAULT_PATH=~/Obsidian/Twitter/bot/
 ```
 
-> 💡 **Nota:** Si usas **DeepSeek**, solo cambia `LLM_BASE_URL=https://api.deepseek.com/v1` y `LLM_MODEL=deepseek-chat`.
+> 💡 **Nota:** Si usas **DeepSeek**, solo cambia `LLM_BASE_URL=https://api.deepseek.com/v1` y `LLM_MODEL=deepseek-chat`. No necesitas levantar un servidor MCP ni configurar servicios adicionales.
 
 ### 3. Iniciar el panel interactivo
 
+La instalación base solo necesita Python, las dependencias del paquete y tus claves en `.env`; no se instala ni se ejecuta ningún servidor MCP.
+
 ```bash
+trending-to-tweet
+# o, sin instalar el comando:
 python main.py
 ```
 
 ---
 
-## 🎮 Panel Interactivo (TUI)
+## 🎮 Aplicación interactiva (TUI)
 
-Al ejecutar `python main.py` sin parámetros tendrás acceso a la consola de control interactiva:
+La interfaz guía el flujo **prompt → fuente → búsqueda → selección → post** sin mostrar logs técnicos. GitHub, Reddit, Hacker News y Code News reutilizan exactamente los mismos clientes, prompts y persistencia de la CLI.
 
 ```text
-╭──────────────────────────────────────────────────────────────────────────╮
-│  🤖  TRENDING2TWEET                                                      │
-│  Panel de creación y revisión de contenido para Obsidian                 │
-│  📂 Bóveda: ~/Obsidian/Twitter/bot                                       │
-╰──────────────────────────────────────────────────────────────────────────╯
+Trending to Tweet                                      LISTO
 
-  ✦ CREAR CONTENIDO
-   1. 🐙 GitHub Trending     repositorios nuevos con más actividad
-   2. 🐙 GitHub Manual       analizar un repositorio concreto
-   3. 📰 Tech News           noticias tecnológicas de Hacker News
-   4. 💻 Code News           historias y aprendizajes de programación
-   5. 🧩 Retos de Código     desafíos por lenguaje y dificultad
-   6. ⌨️  Teclados           publicaciones de periféricos desde Reddit
+                    ¿Qué quieres publicar?
 
-  ✦ REVISAR Y GESTIONAR
-   7. ✨ Mejorar Tweet       pulir un tweet de la bóveda con IA
-   8. 📦 Archivar            mover publicaciones marcadas como publicadas
-   9. 🚀 Publicar en X       publicar un borrador después de revisarlo
-  10. 📊 Estadísticas        ver el estado de la bóveda
+        ❯ Busca algo interesante sobre herramientas de IA
 
-   0. 👋 Salir
+        ● GitHub     ○ Reddit     ○ Hacker News     ○ Code News
 ```
+
+Atajos principales:
+
+| Tecla | Acción |
+|---|---|
+| `Enter` | Iniciar generación |
+| `Tab` / `Shift+Tab` | Cambiar foco |
+| `←` / `→` | Cambiar fuente o variante |
+| `C` | Copiar el post |
+| `R` | Regenerar |
+| `V` | Generar/cambiar variantes |
+| `E` | Editar dentro de la TUI |
+| `Esc` | Cancelar o volver |
+| `D` | Abrir el log de depuración |
+| `Ctrl+C` | Salir de forma segura |
+
+Para grabaciones horizontales, el modo presentación reduce metadata y amplía el contenido protagonista:
+
+```bash
+trending-to-tweet --presentation
+```
+
+El menú anterior continúa disponible con `trending-to-tweet --classic`. Los logs técnicos se guardan en `~/.local/state/trending-to-tweet/app.log` (o `$XDG_STATE_HOME`).
 
 ---
 
@@ -198,6 +249,16 @@ el código directamente en tu proyecto.
 ```
 
 ---
+
+## 🔎 Radar de señal en GitHub
+
+GitHub Trending no se decide solo por cantidad de stars. La consulta excluye forks, repos archivados, descripciones vacías y proyectos sin señales técnicas; después prioriza la combinación de stars, forks, issues abiertos y actividad reciente. El ratio stars/forks anómalo en repositorios grandes se descarta como posible señal inflada.
+
+Son heurísticas sobre metadatos públicos, no una prueba de crecimiento orgánico. Puedes ajustarlas en `.env` (`GITHUB_MIN_STARS`, `GITHUB_ACTIVITY_DAYS` y `GITHUB_MAX_STAR_FORK_RATIO`) y revisar siempre el README antes de redactar.
+
+## 📈 Persistencia y métricas
+
+La versión base mantiene solo el historial antiduplicados en SQLite y deja el rendimiento por publicación para una fase posterior, cuando haya datos revisados suficientes. El diseño propuesto está en [`docs/ROADMAP.md`](docs/ROADMAP.md); no introduce una base remota ni publicación automática.
 
 ## 📦 Sistema de Archivado Automático
 

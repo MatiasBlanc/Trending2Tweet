@@ -1,11 +1,15 @@
 """Cliente para preparar información y redactar tweets con dos LLM."""
 
+import logging
 import re
 from pathlib import Path
 
 from openai import OpenAI
 
 from src import config
+from src.few_shot import build_few_shot_block
+
+logger = logging.getLogger(__name__)
 
 
 def _leer_prompt(nombre_archivo: str, limite_texto: str) -> str:
@@ -63,7 +67,8 @@ def _crear_cliente(settings: config.LLMSettings) -> OpenAI:
     """
     if not settings.api_key:
         raise ValueError(
-            f"No hay una clave API configurada para el modelo {settings.model}"
+            f"No hay una clave API configurada para el modelo {settings.model}. "
+            "Configura AZURE_API_KEY o LLM_API_KEY en tu .env o dotfiles."
         )
 
     client_kwargs: dict[str, object] = {
@@ -142,9 +147,11 @@ def _solicitar_respuesta(
         if resultado and resultado.strip():
             return resultado.strip()
 
-        print(
-            f"  ⚠️ {settings.model} devolvió vacío "
-            f"(intento {intento + 1}/{max_reintentos})"
+        logger.warning(
+            "%s devolvió vacío (intento %s/%s)",
+            settings.model,
+            intento + 1,
+            max_reintentos,
         )
 
     raise Exception(
@@ -236,6 +243,7 @@ def generate_tweet(
     max_tokens_override: int | None = None,
     input_llm_settings: config.LLMSettings | None = None,
     output_llm_settings: config.LLMSettings | None = None,
+    additional_instructions: str | None = None,
 ) -> str:
     """Prepara información con un LLM y redacta el tweet con otro.
 
@@ -249,6 +257,8 @@ def generate_tweet(
             información recibida.
         output_llm_settings: Configuración opcional del modelo que redacta el
             tweet final.
+        additional_instructions: Preferencia editorial adicional para esta
+            generación, utilizada por variantes explícitas.
 
     Returns:
         Texto final del tweet, sin espacios exteriores.
@@ -266,6 +276,11 @@ def generate_tweet(
     if variables:
         for clave, valor in variables.items():
             system_prompt = system_prompt.replace(f"{{{clave}}}", valor)
+    # Las muestras se añaden después de las reglas y antes de los datos del
+    # usuario para reforzar estilo sin convertirlas en contexto factual.
+    system_prompt += build_few_shot_block(prompt_file)
+    if additional_instructions:
+        system_prompt += f"\n\nINSTRUCCIÓN PARA ESTA VARIANTE:\n{additional_instructions.strip()}"
 
     mensaje_redactor = (
         "BRIEF FACTUAL PREPARADO POR EL ANALISTA:\n"

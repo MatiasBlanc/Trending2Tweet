@@ -37,10 +37,16 @@ MAX_GENERATION_LIMIT: int = 20
 # GitHub
 GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN", "").strip()
 
-# LLM
-LLM_API_KEY: str = os.getenv("LLM_API_KEY", "").strip()
+# LLM (Soporta AZURE_API_KEY de dotfiles, o LLM_API_KEY / OPENAI_API_KEY)
+AZURE_API_KEY: str = os.getenv("AZURE_API_KEY", "").strip()
+LLM_API_KEY: str = (
+    os.getenv("AZURE_API_KEY", "").strip()
+    or os.getenv("LLM_API_KEY", "").strip()
+    or os.getenv("OPENAI_API_KEY", "").strip()
+)
 LLM_BASE_URL: str = (
-    os.getenv("LLM_BASE_URL", "https://api.openai.com/v1").strip()
+    os.getenv("AZURE_API_BASE", "").strip()
+    or os.getenv("LLM_BASE_URL", "https://api.openai.com/v1").strip()
     or "https://api.openai.com/v1"
 )
 LLM_MODEL: str = os.getenv("LLM_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
@@ -110,6 +116,28 @@ LLM_SETTINGS = OUTPUT_LLM_SETTINGS
 # Control de longitud de tweets
 # false = sin límite de 280 caracteres (X Premium permite tweets más largos)
 FORCE_280_CHAR_TWEET: bool = os.getenv("FORCE_280_CHAR_TWEET", "false").lower() == "true"
+
+# Few-shot prompting local: no requiere servicios adicionales ni servidores MCP.
+FEW_SHOT_ENABLED: bool = os.getenv("FEW_SHOT_ENABLED", "true").lower() == "true"
+_FEW_SHOT_DEFAULT_PATH = _ROOT / "prompts" / "few_shot_examples.json"
+FEW_SHOT_EXAMPLES_PATH: str = os.path.expanduser(
+    os.getenv("FEW_SHOT_EXAMPLES_PATH", str(_FEW_SHOT_DEFAULT_PATH)).strip()
+    or str(_FEW_SHOT_DEFAULT_PATH)
+)
+FEW_SHOT_MAX_EXAMPLES: int = _leer_entero("FEW_SHOT_MAX_EXAMPLES", 3, 0, 8)
+
+# GitHub signal/noise filtering. These valores son heurísticas transparentes
+# sobre metadatos públicos, no una afirmación de popularidad orgánica real.
+GITHUB_TRENDING_DAYS: int = _leer_entero("GITHUB_TRENDING_DAYS", 30, 1, 90)
+GITHUB_FETCH_LIMIT: int = _leer_entero("GITHUB_FETCH_LIMIT", 50, 10, 100)
+GITHUB_MIN_STARS: int = _leer_entero("GITHUB_MIN_STARS", 20, 0, 1_000_000)
+GITHUB_HIGH_STAR_THRESHOLD: int = _leer_entero(
+    "GITHUB_HIGH_STAR_THRESHOLD", 500, 1, 1_000_000
+)
+GITHUB_MAX_STAR_FORK_RATIO: float = _leer_decimal(
+    "GITHUB_MAX_STAR_FORK_RATIO", 2_000.0, 1.0, 1_000_000.0
+)
+GITHUB_ACTIVITY_DAYS: int = _leer_entero("GITHUB_ACTIVITY_DAYS", 21, 1, 180)
 
 # Noticias
 NEWS_SOURCE: str = os.getenv("NEWS_SOURCE", "hacker_news").strip().lower()

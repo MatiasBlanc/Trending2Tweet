@@ -6,6 +6,7 @@ score numérico, pero el orden del feed ``top?t=day`` ya prioriza por votos.
 """
 
 import html as html_lib
+import logging
 import re
 import time
 from typing import Sequence
@@ -17,6 +18,8 @@ REDDIT_USER_AGENT = "linux:trending2tweet:v1.0 (by /u/trending2tweet)"
 ATOM = "{http://www.w3.org/2005/Atom}"
 _RETRIES = 3
 _BACKOFF_SEGUNDOS = 10
+
+logger = logging.getLogger(__name__)
 
 # Subreddits relevantes para el bot de teclados, en orden de prioridad.
 SUBREDDITS_TECLADOS: tuple[str, ...] = (
@@ -148,7 +151,7 @@ def obtener_posts_teclados(
             time.sleep(2)
         except requests.RequestException as error:
             errores += 1
-            print(f"  ⚠️  r/{subreddit} no disponible: {error}")
+            logger.warning("r/%s no disponible: %s", subreddit, error)
 
     if not posts and errores == len(seleccion):
         raise requests.RequestException(

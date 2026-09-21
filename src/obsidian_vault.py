@@ -9,6 +9,7 @@ Estructura de carpetas:
 └── archivados/  (tweets marcados como published)
 """
 
+import logging
 import os
 import re
 import shutil
@@ -17,6 +18,8 @@ from pathlib import Path
 from typing import Optional
 
 from src import config
+
+logger = logging.getLogger(__name__)
 
 CATEGORIAS_VALIDAS = ("teclado", "github", "news", "codigo")
 
@@ -125,11 +128,11 @@ def _get_vault_path(crear: bool = True) -> Optional[Path]:
         try:
             vault_path.mkdir(parents=True, exist_ok=True)
         except Exception as e:
-            print(f"  ⚠️ Error creando ruta de la bóveda: {e}")
+            logger.warning("Error creando ruta de la bóveda: %s", e)
             return None
 
     if not vault_path.is_dir():
-        print(f"  ⚠️ La ruta de la bóveda no es una carpeta: {vault_path}")
+        logger.warning("La ruta de la bóveda no es una carpeta: %s", vault_path)
         return None
 
     return vault_path
@@ -151,7 +154,7 @@ def _get_twitter_vault_path(crear: bool = False) -> Optional[Path]:
                 twitter_path.mkdir(parents=True, exist_ok=True)
                 return twitter_path
             except Exception as e:
-                print(f"  ⚠️ Error creando ruta de la bóveda de Twitter: {e}")
+                logger.warning("Error creando ruta de la bóveda de Twitter: %s", e)
 
     vault_path = _get_vault_path(crear=False)
     if not vault_path:
@@ -261,9 +264,11 @@ def archivar_publicados() -> list[dict]:
                 info["old_filepath"] = str(md_file)
                 info["filepath"] = str(dest_file)
                 movidos.append(info)
-                print(f"  📦 Archivado tweet publicado: {md_file.name} → archivados/{categoria}/")
+                logger.info(
+                    "Archivado %s en archivados/%s/", md_file.name, categoria
+                )
             except Exception as e:
-                print(f"  ⚠️ Error archivando {md_file.name}: {e}")
+                logger.warning("Error archivando %s: %s", md_file.name, e)
 
     return movidos
 
@@ -330,6 +335,8 @@ def guardar_borrador(
     contenido = "---\n"
     contenido += "type: tweet\n"
     contenido += "status: draft\n"
+    contenido += "review_required: true\n"
+    contenido += "published: false\n"
     contenido += f"category: {_valor_frontmatter(cat_norm)}\n"
     contenido += f"source: {_valor_frontmatter(source)}\n"
     contenido += f"date: {_valor_frontmatter(now.isoformat())}\n"
@@ -382,11 +389,50 @@ def guardar_borrador(
 
     try:
         filepath.write_text(contenido, encoding="utf-8")
-        print(f"  📝 Tweet guardado en [{cat_norm}]: {filepath.name}")
+        logger.info("Tweet guardado en [%s]: %s", cat_norm, filepath.name)
         return str(filepath)
     except Exception as e:
-        print(f"  ⚠️ Error guardando tweet: {e}")
+        logger.warning("Error guardando tweet: %s", e)
         return None
+
+
+def actualizar_texto_borrador(filepath: str, texto: str) -> bool:
+    """Reemplaza el texto principal de un borrador existente.
+
+    Args:
+        filepath: Ruta del Markdown que ya pertenece a la bóveda configurada.
+        texto: Nuevo contenido no vacío del post.
+
+    Returns:
+        ``True`` si se actualizó el archivo; ``False`` si la ruta, el contenido
+        o la estructura del borrador no son válidos.
+    """
+    path = _ruta_en_boveda(Path(filepath), permitir_archivados=False)
+    texto_limpio = texto.strip()
+    if not path or not texto_limpio:
+        return False
+
+    try:
+        content = path.read_text(encoding="utf-8")
+        pattern = re.compile(r"(## Tweet\n\n)(.+?)(?=\n## |\Z)", re.DOTALL)
+        if not pattern.search(content):
+            return False
+        content = pattern.sub(
+            lambda match: f"{match.group(1)}{texto_limpio}\n",
+            content,
+            count=1,
+        )
+        content = re.sub(
+            r"^- \*\*Caracteres\*\*:.*$",
+            f"- **Caracteres**: {len(texto_limpio)}",
+            content,
+            count=1,
+            flags=re.MULTILINE,
+        )
+        path.write_text(content, encoding="utf-8")
+        return True
+    except OSError:
+        return False
 
 
 def marcar_como_publicado(
@@ -403,7 +449,9 @@ def marcar_como_publicado(
     """
     path = _ruta_en_boveda(Path(filepath), permitir_archivados=False)
     if not path:
-        print(f"  ⚠️ Archivo Markdown fuera de la bóveda o no encontrado: {filepath}")
+        logger.warning(
+            "Archivo Markdown fuera de la bóveda o no encontrado: %s", filepath
+        )
         return None
 
     try:
@@ -433,7 +481,7 @@ def marcar_como_publicado(
         # Mover a archivados
         dest_folder = _get_archivados_path(categoria=categoria, crear=True)
         if not dest_folder:
-            print("  ⚠️ No se pudo preparar la carpeta de archivados.")
+            logger.warning("No se pudo preparar la carpeta de archivados")
             return None
 
         dest_file = dest_folder / path.name
@@ -445,10 +493,13 @@ def marcar_como_publicado(
         # Escribir primero evita perder la nota si el destino no es escribible.
         dest_file.write_text(content, encoding="utf-8")
         path.unlink()
-        print(f"  📦 Tweet publicado y archivado en: {dest_file.relative_to(dest_file.parent.parent.parent)}")
+        logger.info(
+            "Tweet publicado y archivado en: %s",
+            dest_file.relative_to(dest_file.parent.parent.parent),
+        )
         return str(dest_file)
     except Exception as e:
-        print(f"  ⚠️ Error marcando como publicado: {e}")
+        logger.warning("Error marcando como publicado: %s", e)
         return None
 
 
@@ -777,7 +828,9 @@ def agregar_update_tweet(filepath: str, tweet_mejorado: str) -> bool:
     """Agrega una sección de update a un tweet existente."""
     path = _ruta_en_boveda(Path(filepath))
     if not path:
-        print(f"  ⚠️ Archivo Markdown fuera de la bóveda o no encontrado: {filepath}")
+        logger.warning(
+            "Archivo Markdown fuera de la bóveda o no encontrado: %s", filepath
+        )
         return False
 
     try:
@@ -806,7 +859,7 @@ def agregar_update_tweet(filepath: str, tweet_mejorado: str) -> bool:
         path.write_text(content, encoding="utf-8")
         return True
     except Exception as e:
-        print(f"  ⚠️ Error agregando update: {e}")
+        logger.warning("Error agregando update: %s", e)
         return False
 
 

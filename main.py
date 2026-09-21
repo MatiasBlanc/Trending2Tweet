@@ -276,24 +276,102 @@ def menu_principal() -> None:
 
 def _mostrar_ayuda() -> None:
     """Muestra los comandos disponibles para la ejecución directa."""
-    print("Uso: python main.py [comando] [argumentos]")
-    print("\nSin comando se abre el menú interactivo.")
-    print("\nComandos: github, manual user/repo, news, codigo, retos, teclado,")
-    print("          mejorar, archivar, stats")
+    ejecutable = Path(sys.argv[0]).name or "t2t"
+    print(f"Uso: {ejecutable} [opción | comando]")
+    print("\nSin argumentos se abre la TUI.")
+    print("\nOpciones: --presentation, --classic")
+    print("\nComandos: generate, github, manual user/repo, news, codigo, retos,")
+    print("          teclado, mejorar, archivar, stats")
     print("\nEjemplos:")
+    print("  trending-to-tweet --presentation")
+    print("  trending-to-tweet generate --source github --query 'herramientas de IA'")
     print("  python main.py github 2")
     print("  python main.py manual facebook/react")
-    print("  python main.py stats")
+
+
+def _lanzar_tui(presentation: bool = False) -> None:
+    """Inicia Textual sin cargarlo durante comandos de automatización.
+
+    Args:
+        presentation: Activa la composición optimizada para grabaciones.
+    """
+    try:
+        from src.tui.app import TrendingToTweetApp
+    except ImportError as error:
+        raise RuntimeError(
+            "Textual no está instalado. Ejecuta: pip install -r requirements.txt"
+        ) from error
+    TrendingToTweetApp(presentation=presentation).run()
+
+
+def _generar_desde_cli(args: list[str]) -> None:
+    """Genera un borrador mediante el mismo servicio que utiliza la TUI.
+
+    Args:
+        args: Argumentos posteriores al subcomando ``generate``.
+
+    Raises:
+        SystemExit: Si los argumentos o la ejecución no son válidos.
+    """
+    import argparse
+
+    from src.services.content_service import ContentService
+    from src.services.logging_config import configure_file_logging
+    from src.services.providers import get_source_providers
+
+    parser = argparse.ArgumentParser(prog="trending-to-tweet generate")
+    parser.add_argument(
+        "--source",
+        choices=("github", "reddit", "hacker-news", "code"),
+        default="github",
+    )
+    parser.add_argument("--query", default="Encuentra algo interesante")
+    parsed = parser.parse_args(args)
+
+    source_key = parsed.source.replace("-", "_")
+    providers = {provider.key: provider for provider in get_source_providers()}
+    provider = providers[source_key]
+    configure_file_logging()
+
+    symbols = {
+        "pending": "○",
+        "running": "→",
+        "success": "✓",
+        "warning": "!",
+        "error": "×",
+    }
+    try:
+        result = ContentService().generate(
+            provider,
+            parsed.query,
+            on_event=lambda event: print(f"{symbols[event.status]} {event.label}"),
+        )
+    except Exception as error:  # noqa: BLE001 - límite de presentación CLI
+        print(f"× No se pudo generar el post: {error}")
+        sys.exit(1)
+
+    print(f"\n{result.post}\n")
+    if result.filepath:
+        print(f"✓ Guardado en {result.filepath}")
 
 
 def main() -> None:
-    """Punto de entrada CLI para el menú y los comandos individuales."""
+    """Punto de entrada para la TUI y los comandos compatibles."""
     if len(sys.argv) == 1:
-        menu_principal()
+        _lanzar_tui()
         return
 
     cmd = sys.argv[1].lower()
     args = sys.argv[2:]
+    if cmd in ("--presentation", "presentation"):
+        _lanzar_tui(presentation=True)
+        return
+    if cmd in ("--classic", "classic", "menu"):
+        menu_principal()
+        return
+    if cmd == "generate":
+        _generar_desde_cli(args)
+        return
     if cmd in ("-h", "--help", "help", "ayuda"):
         _mostrar_ayuda()
         return

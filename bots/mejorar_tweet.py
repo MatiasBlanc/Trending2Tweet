@@ -326,8 +326,8 @@ def main() -> None:
         sys.exit(1)
 
     if not config.LLM_API_KEY:
-        print("\n  ❌ Error: LLM_API_KEY no configurado")
-        print("  Configura tu API key del LLM en .env")
+        print("\n  ❌ Error: Clave de API no configurada (AZURE_API_KEY o LLM_API_KEY)")
+        print("  Configura tu API key en .env o en tus dotfiles")
         sys.exit(1)
 
     vault_root = _get_twitter_vault_path()
